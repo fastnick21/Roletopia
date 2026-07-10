@@ -1,0 +1,55 @@
+{
+  "component": "plugin-system",
+  "version": "1.0.0",
+  "name": "Roletopia Plugin System",
+  "description": "Plugin loader and core-roles plugin for extending Roletopia with custom roles and features",
+  "author": "fastnick21",
+  "created": "2026-07-10",
+  "files": [
+    {
+      "name": "plugin-loader.dll",
+      "description": "Plugin manager and loader - discovers, validates, and activates plugin files",
+      "size": "0.6 MB"
+    },
+    {
+      "name": "core-roles.plugin.json",
+      "description": "Default roles plugin manifest - defines all built-in roles and their configurations",
+      "size": "0.2 MB"
+    }
+  ],
+  "dependencies": [
+    "Roletopia Game Code component",
+    ".NET Framework 4.7.2 or higher"
+  ],
+  "installation": {
+    "path": "%APPDATA%\\Among Us\\Mods\\Roletopia\\",
+    "extractTo": "plugins/"
+  },
+  "features": [
+    "Dynamic plugin discovery",
+    "Role configuration management",
+    "Custom role support",
+    "Plugin validation and error handling",
+    "Hot-reload capability (restart required)"
+  ],
+  "plugin_api": {
+    "version": "1.0",
+    "supported_role_types": [
+      "crewmate",
+      "neutral",
+      "impostor"
+    ],
+    "extension_points": [
+      "custom_abilities",
+      "role_modifiers",
+      "game_events"
+    ]
+  },
+  "included_plugins": [
+    {
+      "name": "core-roles",
+      "description": "Core Roletopia roles plugin",
+      "roles": 9
+    }
+  ]
+}
