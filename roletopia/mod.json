@@ -6,7 +6,7 @@
   "distribution": {
     "hostDownload": "steam-workshop",
     "clientRequired": false,
-    "supportedVanillaClients": ["ios", "android", "ps5"]
+    "supportedVanillaClients": ["iOS", "Android", "PS5"]
   },
   "pluginSystem": {
     "type": "roletopia-custom-plugin",

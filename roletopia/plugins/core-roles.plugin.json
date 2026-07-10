@@ -10,7 +10,7 @@
     }
   ],
   "compatibility": {
-    "requiresHostPlatform": ["steam"],
-    "allowsVanillaClients": ["ios", "android", "ps5"]
+    "requiresHostPlatform": ["Steam"],
+    "allowsVanillaClients": ["iOS", "Android", "PS5"]
   }
 }
