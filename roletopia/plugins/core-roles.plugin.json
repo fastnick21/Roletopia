@@ -11,6 +11,6 @@
   ],
   "compatibility": {
     "requiresHostPlatform": ["steam"],
-    "allowsVanillaClients": ["ios", "android", "playstation5"]
+    "allowsVanillaClients": ["ios", "android", "ps5"]
   }
 }
