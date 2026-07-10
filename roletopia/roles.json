@@ -1,0 +1,5 @@
+{
+  "crewmate": ["Sheriff", "Medium", "Snitch", "Engineer", "Guardian"],
+  "neutral": ["Arsonist", "Jester", "Hacker"],
+  "impostor": ["Ninja", "Assassin", "Dragon"]
+}
