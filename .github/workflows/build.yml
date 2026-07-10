@@ -26,3 +26,11 @@ jobs:
 
       - name: Build
         run: dotnet build Roletopia.sln --configuration Release --no-restore
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: roletopia-dlls
+          path: |
+            roletopia/game-code/*.dll
+            roletopia/plugins/*.dll
