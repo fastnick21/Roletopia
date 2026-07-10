@@ -1,0 +1,16 @@
+{
+  "pluginId": "roletopia.core.roles",
+  "name": "Roletopia Core Roles",
+  "version": "1.0.0",
+  "hostOnly": true,
+  "loads": [
+    {
+      "type": "role-bundle",
+      "source": "../roles.json"
+    }
+  ],
+  "compatibility": {
+    "requiresHostPlatform": ["steam"],
+    "allowsVanillaClients": ["ios", "android", "playstation-5", "steam"]
+  }
+}

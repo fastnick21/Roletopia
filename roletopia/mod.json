@@ -1,0 +1,16 @@
+{
+  "id": "roletopia",
+  "title": "Roletopia",
+  "game": "Among Us",
+  "hostOnlyMod": true,
+  "distribution": {
+    "hostDownload": "steam-workshop",
+    "clientRequired": false,
+    "supportedVanillaClients": ["steam", "ios", "android", "playstation-5"]
+  },
+  "pluginSystem": {
+    "type": "roletopia-custom-plugin",
+    "entryPlugin": "plugins/core-roles.plugin.json",
+    "allowHostOnlyPlugins": true
+  }
+}
