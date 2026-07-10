@@ -25,7 +25,7 @@ Roletopia is a **host-only Among Us mod** inspired by TownOfUs.
 
 ### Impostor
 - Ninja
-- Assasin
+- Assassin
 - Dragon
 
 ## Plugin-based install layout
