@@ -58,7 +58,7 @@ namespace Roletopia.CoreEngine
 
     public sealed class GameEngine
     {
-        private readonly Dictionary<string, string> _votes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, string> _votes = new Dictionary<string, string>();
 
         public GameState State { get; } = new GameState();
 

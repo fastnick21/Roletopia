@@ -40,14 +40,23 @@ namespace Roletopia.PluginLoader
             var files = Directory.GetFiles(pluginsDirectory, "*.plugin.json", SearchOption.TopDirectoryOnly);
             foreach (var file in files)
             {
-                using (var stream = File.OpenRead(file))
+                try
                 {
-                    var serializer = new DataContractJsonSerializer(typeof(PluginManifest));
-                    var manifest = serializer.ReadObject(stream) as PluginManifest;
-                    if (manifest != null)
+                    using (var stream = File.OpenRead(file))
                     {
-                        manifests.Add(manifest);
+                        var serializer = new DataContractJsonSerializer(typeof(PluginManifest));
+                        var manifest = serializer.ReadObject(stream) as PluginManifest;
+                        if (manifest != null)
+                        {
+                            manifests.Add(manifest);
+                        }
                     }
+                }
+                catch (IOException)
+                {
+                }
+                catch (SerializationException)
+                {
                 }
             }
 
