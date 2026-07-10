@@ -1,0 +1,6 @@
+**/bin/
+**/obj/
+roletopia/game-code/*.dll
+roletopia/game-code/*.pdb
+roletopia/plugins/*.dll
+roletopia/plugins/*.pdb

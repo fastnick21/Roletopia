@@ -3,6 +3,19 @@
   "name": "Roletopia Core Roles",
   "version": "1.0.0",
   "hostOnly": true,
+  "roles": [
+    "Sheriff",
+    "Medium",
+    "Snitch",
+    "Engineer",
+    "Guardian",
+    "Arsonist",
+    "Jester",
+    "Hacker",
+    "Ninja",
+    "Assassin",
+    "Dragon"
+  ],
   "loads": [
     {
       "type": "role-bundle",
