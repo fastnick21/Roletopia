@@ -1,0 +1,42 @@
+{
+  "component": "game-code",
+  "version": "1.0.0",
+  "name": "Roletopia Game Code",
+  "description": "Core game engine, role system, and networking components for Roletopia",
+  "author": "fastnick21",
+  "created": "2026-07-10",
+  "files": [
+    {
+      "name": "core-engine.dll",
+      "description": "Main game logic engine - handles game flow, voting, task completion, and win conditions",
+      "size": "2.4 MB"
+    },
+    {
+      "name": "role-system.dll",
+      "description": "Role behavior and abilities system - defines how each role functions in the game",
+      "size": "1.8 MB"
+    },
+    {
+      "name": "networking.dll",
+      "description": "Server-client communication module - handles data sync between host and vanilla players",
+      "size": "0.9 MB"
+    }
+  ],
+  "dependencies": [
+    ".NET Framework 4.7.2 or higher"
+  ],
+  "installation": {
+    "path": "%APPDATA%\\Among Us\\Mods\\Roletopia\\",
+    "extractTo": "game-code/"
+  },
+  "roles_included": [
+    "Crewmate (Sheriff, Medium, Snitch, Engineer, Guardian)",
+    "Neutral (Arsonist, Jester, Hacker)",
+    "Impostor (Ninja, Assassin, Dragon)"
+  ],
+  "compatibility": {
+    "among_us_version": "2024.8.13+",
+    "steam_only": true,
+    "supports_vanilla_clients": true
+  }
+}
