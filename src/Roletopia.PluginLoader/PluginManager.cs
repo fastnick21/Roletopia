@@ -54,9 +54,11 @@ namespace Roletopia.PluginLoader
                 }
                 catch (IOException)
                 {
+                    // Skip unreadable plugin files so one bad file does not block all plugins.
                 }
                 catch (SerializationException)
                 {
+                    // Skip malformed plugin manifests during discovery.
                 }
             }
 

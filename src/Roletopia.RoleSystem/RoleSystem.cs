@@ -20,8 +20,14 @@ namespace Roletopia.RoleSystem
 
     public sealed class RoleContext
     {
-        public string ActorId { get; set; }
-        public string TargetId { get; set; }
+        public RoleContext(string actorId, string targetId)
+        {
+            ActorId = actorId;
+            TargetId = targetId;
+        }
+
+        public string ActorId { get; }
+        public string TargetId { get; }
     }
 
     public interface IRoleBehavior
