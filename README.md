@@ -8,20 +8,11 @@ Roletopia is a **host-only Among Us mod** inspired by TownOfUs.
 - Mod distribution is Steam-only for hosts.
 - Vanilla players on mobile and PS5 can join host lobbies.
 - Uses a custom Roletopia plugin system for installation/role loading.
+- Simple one-click installer for easy setup.
 
 ## 📥 Installation Guide
 
-### Step 1: Prerequisites
-
-Before installing Roletopia, ensure you have:
-- ✅ Among Us (Steam version)
-- ✅ .NET Framework 4.7.2 or higher
-- ✅ Administrator privileges on your computer
-- ✅ At least 500MB free disk space
-
-### Step 2: Download Roletopia Files
-
-Download the two main components:
+### Installation Options
 
 #### 🎮 Option A: Quick Install (Recommended)
 1. Go to the [Releases page](https://github.com/fastnick21/Roletopia/releases)
@@ -31,30 +22,20 @@ Download the two main components:
 5. The installer auto-detects Among Us and installs to `Among Us\Mods\Roletopia\` (or asks you to select the folder if not found)
 
 #### 🔧 Option B: Manual Install
+1. **Extract Files**
+   - Extract all mod files to: `%APPDATA%\Among Us\Mods\Roletopia\`
+   - This folder may not exist yet - create it if needed
 
-**Download Component 1: Game Code**
-- File: `roletopia-game-code.zip`
-- Contains the core mod engine and role systems
-- Extract to: `%APPDATA%\Among Us\Mods\Roletopia\`
+2. **Verify Installation**
+   - Launch Among Us
+   - Look for the Roletopia mod in the mods menu
+   - Enable the roles you want to use
 
-**Download Component 2: Plugin System**
-- File: `roletopia-plugin-system.zip`
-- Contains the plugin loader and core-roles plugin
-- Extract to: `%APPDATA%\Among Us\Mods\Roletopia\plugins\`
-
-### Step 3: Verify Installation
-
-1. Launch Among Us
-2. Look for the Roletopia logo in the main menu
-3. Click **Mods** → **Roletopia** to configure settings
-4. Enable roles you want to use
-
-### Step 4: Create a Roletopia Lobby
-
-1. Click **Online** → **Create Game**
-2. In the mod settings, select **Enable Roletopia**
-3. Choose your desired roles and game settings
-4. Share the code with friends!
+3. **Create a Roletopia Lobby**
+   - Click **Online** → **Create Game**
+   - Select Roletopia from available mods
+   - Choose your desired roles and settings
+   - Share the code with friends!
 
 ### For Vanilla Players (No Installation Needed!)
 
@@ -63,13 +44,21 @@ Vanilla players on **mobile and PS5** can simply:
 2. Play normally - all role logic happens on the host's computer
 3. No installation or downloads required! 🎉
 
+### Prerequisites
+
+Before installing Roletopia, ensure you have:
+- ✅ Among Us (Steam version)
+- ✅ .NET Framework 4.7.2 or higher
+- ✅ Administrator privileges on your computer
+- ✅ At least 500MB free disk space
+
 ### Troubleshooting
 
 | Issue | Solution |
 |-------|----------|
 | Mod not appearing in menu | Verify .NET Framework 4.7.2+ is installed |
 | Among Us won't launch | Try running as Administrator |
-| Plugin system error | Delete the plugins folder and reinstall |
+| Plugin system error | Delete the mods folder and reinstall |
 | Friends can't join | Ensure your firewall isn't blocking Among Us |
 
 ## 🕵️ Roles
@@ -97,19 +86,19 @@ These roles work as impostors with their own special abilities.
 - **🗡️ Assassin** - Can perform instant kills and mark targets for assassination from a distance.
 - **🐉 Dragon** - Can fly over obstacles and has enhanced movement abilities compared to regular impostors.
 
-## 📁 File Structure
+## 📁 Project Structure
 
 ```
-roletopia/
-├── mod.json                           # Main mod manifest and compatibility contract
-├── roles.json                         # Role catalog and configurations
-├── game-code/                         # Game code component
-│   ├── core-engine.dll               # Main game logic engine
-│   ├── role-system.dll               # Role behavior and abilities
-│   └── networking.dll                # Server-client communication
-└── plugins/                           # Plugin system component
-    ├── plugin-loader.dll             # Plugin manager and loader
-    └── core-roles.plugin.json        # Default roles plugin manifest
+Roletopia/
+├── README.md                                    # This file
+├── Roletopia.sln                               # Visual Studio Solution
+├── src/                                        # Source code
+│   ├── Roletopia.CoreEngine/                  # Main game logic
+│   ├── Roletopia.RoleSystem/                  # Role behaviors and abilities
+│   ├── Roletopia.Networking/                  # Server-client communication
+│   └── Roletopia.PluginLoader/                # Plugin system manager
+└── roletopia/                                  # Compiled output
+    └── game-code/                              # DLL files and resources
 ```
 
 ## 🔌 Plugin System Architecture
@@ -117,7 +106,7 @@ roletopia/
 The plugin system allows custom roles and features to be added without modifying the core game code:
 
 1. **Host loads mod** → Plugin system initializes
-2. **Plugin manager scans** → Finds all `.plugin.json` files
+2. **Plugin manager scans** → Finds all available plugins
 3. **Plugins activate** → Role behaviors applied server-side
 4. **Vanilla clients join** → No modifications needed on their end
 
