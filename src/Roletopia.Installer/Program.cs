@@ -182,12 +182,6 @@ namespace Roletopia.Installer
             {
                 var relative = GetRelativePath(sourceDirectory, file);
                 var destination = Path.Combine(destinationDirectory, relative);
-                var destinationParent = Path.GetDirectoryName(destination);
-                if (!string.IsNullOrEmpty(destinationParent))
-                {
-                    Directory.CreateDirectory(destinationParent);
-                }
-
                 File.Copy(file, destination, true);
             }
         }
