@@ -34,3 +34,4 @@ jobs:
           path: |
             roletopia/game-code/*.dll
             roletopia/plugins/*.dll
+            src/Roletopia.Installer/bin/Release/**
