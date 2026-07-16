@@ -165,7 +165,7 @@ namespace Roletopia.Installer
             var executablePath = Path.Combine(path, "Among Us.exe");
             var dataFolderPath = Path.Combine(path, "Among Us_Data");
 
-            return File.Exists(executablePath) || Directory.Exists(dataFolderPath);
+            return File.Exists(executablePath) && Directory.Exists(dataFolderPath);
         }
 
         private static void CopyDirectory(string sourceDirectory, string destinationDirectory)
