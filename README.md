@@ -28,7 +28,7 @@ Download the two main components:
 2. Download the latest **Roletopia-Installer.exe**
 3. Keep the bundled `roletopia/` folder next to the installer `.exe`
 4. Run the installer and follow the on-screen instructions
-5. The installer auto-detects Among Us and installs to `Among Us\\Mods\\Roletopia\\` (or asks you to select the folder if not found)
+5. The installer auto-detects Among Us and installs to `Among Us\Mods\Roletopia\` (or asks you to select the folder if not found)
 
 #### 🔧 Option B: Manual Install
 

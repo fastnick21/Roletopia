@@ -174,13 +174,13 @@ namespace Roletopia.Installer
 
             foreach (var directory in Directory.GetDirectories(sourceDirectory, "*", SearchOption.AllDirectories))
             {
-                var relative = directory.Substring(sourceDirectory.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                var relative = GetRelativePath(sourceDirectory, directory);
                 Directory.CreateDirectory(Path.Combine(destinationDirectory, relative));
             }
 
             foreach (var file in Directory.GetFiles(sourceDirectory, "*", SearchOption.AllDirectories))
             {
-                var relative = file.Substring(sourceDirectory.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                var relative = GetRelativePath(sourceDirectory, file);
                 var destination = Path.Combine(destinationDirectory, relative);
                 var destinationParent = Path.GetDirectoryName(destination);
                 if (!string.IsNullOrEmpty(destinationParent))
@@ -190,6 +190,21 @@ namespace Roletopia.Installer
 
                 File.Copy(file, destination, true);
             }
+        }
+
+        private static string GetRelativePath(string sourceDirectory, string path)
+        {
+            var normalizedSource = Path.GetFullPath(sourceDirectory)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                + Path.DirectorySeparatorChar;
+            var normalizedPath = Path.GetFullPath(path);
+
+            if (normalizedPath.StartsWith(normalizedSource, StringComparison.OrdinalIgnoreCase))
+            {
+                return normalizedPath.Substring(normalizedSource.Length);
+            }
+
+            return Path.GetFileName(normalizedPath);
         }
 
         private static void WriteError(string message)
