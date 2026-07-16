@@ -12,18 +12,16 @@ Roletopia is a **host-only Among Us mod** inspired by TownOfUs.
 
 ## 📥 Installation Guide
 
-### Quick Start (Coming Soon!)
+### Installation Options
 
-We're building a simple installer that will make setup a breeze:
-1. Download `Roletopia-Installer.exe`
-2. Run it
-3. It automatically detects your Among Us folder and installs the mod
-4. Done! 🎉
+#### 🎮 Option A: Quick Install (Recommended)
+1. Go to the [Releases page](https://github.com/fastnick21/Roletopia/releases)
+2. Download and extract the latest release package (it includes **Roletopia-Installer.exe** and the `roletopia/` folder)
+3. Keep the bundled `roletopia/` folder next to the installer `.exe`
+4. Run the installer and follow the on-screen instructions
+5. The installer auto-detects Among Us and installs to `Among Us\Mods\Roletopia\` (or asks you to select the folder if not found)
 
-### Manual Installation (For Now)
-
-Until the installer is ready, here's how to manually install:
-
+#### 🔧 Option B: Manual Install
 1. **Extract Files**
    - Extract all mod files to: `%APPDATA%\Among Us\Mods\Roletopia\`
    - This folder may not exist yet - create it if needed
