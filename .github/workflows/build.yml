@@ -4,12 +4,14 @@ on:
   push:
     branches:
       - '**'
+    tags:
+      - 'v*'
   pull_request:
 
 jobs:
   build:
     permissions:
-      contents: read
+      contents: write
     runs-on: windows-latest
 
     steps:
@@ -27,11 +29,29 @@ jobs:
       - name: Build
         run: dotnet build Roletopia.sln --configuration Release --no-restore
 
-      - name: Upload artifacts
+      - name: Upload DLL artifacts
         uses: actions/upload-artifact@v4
         with:
           name: roletopia-dlls
           path: |
             roletopia/game-code/*.dll
             roletopia/plugins/*.dll
-            src/Roletopia.Installer/bin/Release/**
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Roletopia-Installer
+          path: src/Roletopia.Installer/bin/Release/Roletopia-Installer.exe
+
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          Compress-Archive -Path roletopia/game-code/*.dll, roletopia/plugins/*.dll -DestinationPath roletopia-dlls.zip
+          gh release create ${{ github.ref_name }} `
+            --title "Roletopia ${{ github.ref_name }}" `
+            --generate-notes `
+            src/Roletopia.Installer/bin/Release/Roletopia-Installer.exe `
+            roletopia-dlls.zip
