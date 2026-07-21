@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{827E0CD3-B72D-47B6-A68D-7590B98EB39B}"
+Project("{2150E333-8FDC-42A3-BF4B-00C04F79EFBC}") = "src", "src", "{827E0CD3-B72D-47B6-A68D-7590B98EB39B}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Roletopia.CoreEngine", "src\Roletopia.CoreEngine\Roletopia.CoreEngine.csproj", "{9875D14D-0CEC-45AA-9B0E-326CDA477186}"
 EndProject
@@ -14,6 +14,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Roletopia.PluginLoader", "src\Roletopia.PluginLoader\Roletopia.PluginLoader.csproj", "{E78BF8BB-3E0E-410C-8AEF-393F282F88C6}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Roletopia.Installer", "src\Roletopia.Installer\Roletopia.Installer.csproj", "{92FC826D-FF5B-4558-ACB3-20EF976F1B64}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Roletopia.Runtime", "src\Roletopia.Runtime\Roletopia.Runtime.csproj", "{7F5B3D20-99BC-4C1F-A35D-37D43CEFA4A1}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -85,6 +87,18 @@ Global
 		{92FC826D-FF5B-4558-ACB3-20EF976F1B64}.Release|x64.Build.0 = Release|Any CPU
 		{92FC826D-FF5B-4558-ACB3-20EF976F1B64}.Release|x86.ActiveCfg = Release|Any CPU
 		{92FC826D-FF5B-4558-ACB3-20EF976F1B64}.Release|x86.Build.0 = Release|Any CPU
+		{7F5B3D20-99BC-4C1F-A35D-37D43CEFA4A1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7F5B3D20-99BC-4C1F-A35D-37D43CEFA4A1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7F5B3D20-99BC-4C1F-A35D-37D43CEFA4A1}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{7F5B3D20-99BC-4C1F-A35D-37D43CEFA4A1}.Debug|x64.Build.0 = Debug|Any CPU
+		{7F5B3D20-99BC-4C1F-A35D-37D43CEFA4A1}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{7F5B3D20-99BC-4C1F-A35D-37D43CEFA4A1}.Debug|x86.Build.0 = Debug|Any CPU
+		{7F5B3D20-99BC-4C1F-A35D-37D43CEFA4A1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7F5B3D20-99BC-4C1F-A35D-37D43CEFA4A1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7F5B3D20-99BC-4C1F-A35D-37D43CEFA4A1}.Release|x64.ActiveCfg = Release|Any CPU
+		{7F5B3D20-99BC-4C1F-A35D-37D43CEFA4A1}.Release|x64.Build.0 = Release|Any CPU
+		{7F5B3D20-99BC-4C1F-A35D-37D43CEFA4A1}.Release|x86.ActiveCfg = Release|Any CPU
+		{7F5B3D20-99BC-4C1F-A35D-37D43CEFA4A1}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -95,5 +109,6 @@ Global
 		{B9F16F49-E747-42DE-9AB1-8CB128DE0ABF} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{E78BF8BB-3E0E-410C-8AEF-393F282F88C6} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{92FC826D-FF5B-4558-ACB3-20EF976F1B64} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{7F5B3D20-99BC-4C1F-A35D-37D43CEFA4A1} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal
