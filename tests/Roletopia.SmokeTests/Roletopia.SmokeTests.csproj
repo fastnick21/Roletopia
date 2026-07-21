@@ -10,5 +10,6 @@
     <ProjectReference Include="../../src/Roletopia.RoleSystem/Roletopia.RoleSystem.csproj" />
     <ProjectReference Include="../../src/Roletopia.Networking/Roletopia.Networking.csproj" />
     <ProjectReference Include="../../src/Roletopia.PluginLoader/Roletopia.PluginLoader.csproj" />
+    <ProjectReference Include="../../src/Roletopia.Runtime/Roletopia.Runtime.csproj" />
   </ItemGroup>
 </Project>
