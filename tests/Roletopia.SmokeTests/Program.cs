@@ -1,5 +1,6 @@
 using Roletopia.CoreEngine;
 using Roletopia.Networking;
+using Roletopia.RoleSystem;
 
 var failures = new List<string>();
 void Check(bool condition, string name)
@@ -10,17 +11,45 @@ void Check(bool condition, string name)
 var engine = new GameEngine();
 Check(engine.AddPlayer("a"), "add player a");
 Check(engine.AddPlayer("b"), "add player b");
+Check(engine.AddPlayer("c"), "add player c");
 Check(!engine.AddPlayer("a"), "reject duplicate player");
+
+var roles = new RoleRegistry();
+var assignments = new RoleAssignmentService(roles).Assign(engine, new[] { RoleType.Sheriff, RoleType.Ninja }, 42);
+Check(assignments.Count == 2, "assign enabled roles");
+
+var sheriffId = assignments.Single(x => x.Value == RoleType.Sheriff).Key;
+var ninjaId = assignments.Single(x => x.Value == RoleType.Ninja).Key;
+var targetId = engine.Players.Select(p => p.Id).First(id => id != sheriffId && id != ninjaId);
+
 engine.StartGame(2);
-Check(engine.CompleteTask(), "complete first task");
-Check(engine.CompleteTask(), "complete second task");
-Check(engine.EvaluateCrewmateTaskWin(), "task win");
-Check(engine.EnterMeeting(), "enter meeting");
-Check(engine.RegisterVote("a", "b"), "valid vote");
-Check(!engine.RegisterVote("unknown", "b"), "reject unknown voter");
-var result = engine.ResolveVotes();
-Check(result.EjectedPlayerId == "b", "eject voted player");
-Check(!engine.IsPlayerAlive("b"), "ejected player dead");
+var sheriff = roles.Get(RoleType.Sheriff)!;
+var now = DateTimeOffset.UtcNow;
+var ability = sheriff.UseAbility(new RoleContext(engine, sheriffId, targetId, now));
+Check(ability.Succeeded, "sheriff ability succeeds");
+Check(!engine.IsPlayerAlive(targetId), "ability eliminates target");
+var cooldownAttempt = sheriff.UseAbility(new RoleContext(engine, sheriffId, ninjaId, now.AddSeconds(1)));
+Check(cooldownAttempt.Code == AbilityResultCode.OnCooldown, "ability cooldown enforced");
+
+var taskEngine = new GameEngine();
+taskEngine.AddPlayer("crew");
+taskEngine.AddPlayer("other");
+taskEngine.StartGame(2);
+Check(taskEngine.CompleteTask(), "complete first task");
+Check(taskEngine.CompleteTask(), "complete second task");
+Check(taskEngine.State.Phase == GamePhase.Finished, "task win finishes game");
+Check(taskEngine.EvaluateCrewmateTaskWin(), "task win detected");
+
+var voteEngine = new GameEngine();
+voteEngine.AddPlayer("voter");
+voteEngine.AddPlayer("target");
+voteEngine.StartGame(0);
+Check(voteEngine.EnterMeeting(), "enter meeting");
+Check(voteEngine.RegisterVote("voter", "target"), "valid vote");
+Check(!voteEngine.RegisterVote("unknown", "target"), "reject unknown voter");
+var voteResult = voteEngine.ResolveVotes();
+Check(voteResult.EjectedPlayerId == "target", "eject voted player");
+Check(!voteEngine.IsPlayerAlive("target"), "ejected player dead");
 
 var transport = new FakeTransport();
 var network = new NetworkingService(transport);
