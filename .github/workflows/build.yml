@@ -35,7 +35,7 @@ jobs:
     permissions:
       contents: write
     env:
-      INSTALLER_PATH: src/Roletopia.Installer/bin/Release/Roletopia-Installer.exe
+      INSTALLER_PATH: src/Roletopia.Installer/bin/Release/Roletopia-Launcher.exe
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -48,7 +48,7 @@ jobs:
       - name: Validate package outputs
         shell: pwsh
         run: |
-          if (!(Test-Path $env:INSTALLER_PATH)) { throw "Installer was not produced." }
+          if (!(Test-Path $env:INSTALLER_PATH)) { throw "Launcher was not produced at $env:INSTALLER_PATH" }
           if (!(Test-Path "roletopia/game-code/core-engine.dll")) { throw "Core engine DLL was not produced." }
       - uses: actions/upload-artifact@v4
         with:
