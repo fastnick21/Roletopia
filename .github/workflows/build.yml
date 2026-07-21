@@ -2,50 +2,62 @@ name: Build Roletopia
 
 on:
   push:
-    branches:
-      - '**'
-    tags:
-      - 'v*'
+    branches: ['**']
+    tags: ['v*']
   pull_request:
 
 jobs:
-  build:
-    permissions:
-      contents: write
-    runs-on: windows-latest
-    env:
-      INSTALLER_PATH: src/Roletopia.Installer/bin/Release/Roletopia-Installer.exe
-
+  portable-libraries:
+    name: Portable libraries (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
+      - name: Build portable libraries
+        run: |
+          dotnet build src/Roletopia.CoreEngine/Roletopia.CoreEngine.csproj --configuration Release
+          dotnet build src/Roletopia.RoleSystem/Roletopia.RoleSystem.csproj --configuration Release
+          dotnet build src/Roletopia.Networking/Roletopia.Networking.csproj --configuration Release
+          dotnet build src/Roletopia.PluginLoader/Roletopia.PluginLoader.csproj --configuration Release
+      - name: Run smoke tests
+        run: dotnet run --project tests/Roletopia.SmokeTests/Roletopia.SmokeTests.csproj --configuration Release
 
+  windows-package:
+    name: Windows installer and package
+    runs-on: windows-latest
+    needs: portable-libraries
+    permissions:
+      contents: write
+    env:
+      INSTALLER_PATH: src/Roletopia.Installer/bin/Release/Roletopia-Installer.exe
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
       - name: Restore
         run: dotnet restore Roletopia.sln
-
       - name: Build
         run: dotnet build Roletopia.sln --configuration Release --no-restore
-
-      - name: Upload DLL artifacts
-        uses: actions/upload-artifact@v4
+      - name: Validate package outputs
+        shell: pwsh
+        run: |
+          if (!(Test-Path $env:INSTALLER_PATH)) { throw "Installer was not produced." }
+          if (!(Test-Path "roletopia/game-code/core-engine.dll")) { throw "Core engine DLL was not produced." }
+      - uses: actions/upload-artifact@v4
         with:
-          name: roletopia-dlls
+          name: roletopia-windows
           path: |
+            ${{ env.INSTALLER_PATH }}
             roletopia/game-code/*.dll
             roletopia/plugins/*.dll
-
-      - name: Upload installer artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: Roletopia-Installer
-          path: ${{ env.INSTALLER_PATH }}
-
-      - name: Create Release
+      - name: Create release
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
