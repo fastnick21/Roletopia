@@ -5,6 +5,8 @@ using System.Linq;
 namespace Roletopia.CoreEngine
 {
     public enum GamePhase { Lobby, InProgress, Meeting, Finished }
+    public enum TeamType { Crewmate, Impostor, Neutral }
+    public enum WinReason { None, TasksCompleted, CrewmatesEliminated, ImpostorsEliminated, NeutralObjective }
 
     public sealed class PlayerState
     {
@@ -17,8 +19,19 @@ namespace Roletopia.CoreEngine
         public string Id { get; }
         public bool IsAlive { get; private set; } = true;
         public bool IsConnected { get; private set; } = true;
+        public TeamType Team { get; private set; } = TeamType.Crewmate;
+        public string RoleId { get; private set; } = "Crewmate";
+
+        public void AssignRole(string roleId, TeamType team)
+        {
+            if (string.IsNullOrWhiteSpace(roleId)) throw new ArgumentException("Role ID is required.", nameof(roleId));
+            RoleId = roleId.Trim();
+            Team = team;
+        }
+
         public void Eliminate() => IsAlive = false;
-        public void Disconnect() => IsConnected = false;
+        public void Revive() { if (IsConnected) IsAlive = true; }
+        public void Disconnect() { IsConnected = false; IsAlive = false; }
     }
 
     public sealed class VoteResult
@@ -32,6 +45,21 @@ namespace Roletopia.CoreEngine
         public string EjectedPlayerId { get; }
         public bool WasTie { get; }
         public int SkipVotes { get; }
+    }
+
+    public sealed class WinResult
+    {
+        public WinResult(TeamType? winningTeam, WinReason reason, string winnerPlayerId = null)
+        {
+            WinningTeam = winningTeam;
+            Reason = reason;
+            WinnerPlayerId = winnerPlayerId;
+        }
+        public TeamType? WinningTeam { get; }
+        public WinReason Reason { get; }
+        public string WinnerPlayerId { get; }
+        public bool HasWinner => Reason != WinReason.None;
+        public static WinResult None { get; } = new WinResult(null, WinReason.None);
     }
 
     public sealed class GameState
@@ -58,38 +86,85 @@ namespace Roletopia.CoreEngine
     {
         private readonly Dictionary<string, PlayerState> _players = new Dictionary<string, PlayerState>(StringComparer.Ordinal);
         private readonly Dictionary<string, string> _votes = new Dictionary<string, string>(StringComparer.Ordinal);
+
         public GameState State { get; } = new GameState();
         public IReadOnlyCollection<PlayerState> Players => _players.Values.ToArray();
+
+        public event Action<PlayerState> PlayerAdded;
+        public event Action<PlayerState> PlayerEliminated;
+        public event Action<GamePhase> PhaseChanged;
+        public event Action<WinResult> GameWon;
 
         public bool AddPlayer(string playerId)
         {
             if (State.Phase != GamePhase.Lobby || string.IsNullOrWhiteSpace(playerId) || _players.ContainsKey(playerId)) return false;
-            _players.Add(playerId, new PlayerState(playerId));
+            var player = new PlayerState(playerId);
+            _players.Add(playerId, player);
+            PlayerAdded?.Invoke(player);
+            return true;
+        }
+
+        public bool TryGetPlayer(string playerId, out PlayerState player) => _players.TryGetValue(playerId ?? string.Empty, out player);
+
+        public bool AssignRole(string playerId, string roleId, TeamType team)
+        {
+            if (State.Phase != GamePhase.Lobby || !TryGetPlayer(playerId, out var player)) return false;
+            player.AssignRole(roleId, team);
             return true;
         }
 
         public bool DisconnectPlayer(string playerId)
         {
-            if (!_players.TryGetValue(playerId ?? string.Empty, out var player)) return false;
+            if (!TryGetPlayer(playerId, out var player)) return false;
             player.Disconnect();
             _votes.Remove(playerId);
             return true;
         }
 
-        public void StartGame(int totalTasks)
+        public bool EliminatePlayer(string playerId)
         {
-            if (_players.Count == 0) throw new InvalidOperationException("At least one player is required.");
-            _votes.Clear();
-            State.Start(totalTasks);
+            if (State.Phase == GamePhase.Lobby || State.Phase == GamePhase.Finished || !TryGetPlayer(playerId, out var player) || !player.IsAlive) return false;
+            player.Eliminate();
+            PlayerEliminated?.Invoke(player);
+            EvaluateAndFinishIfWon();
+            return true;
         }
 
-        public bool EnterMeeting() { _votes.Clear(); return State.EnterMeeting(); }
-        public bool ExitMeeting() { _votes.Clear(); return State.ExitMeeting(); }
+        public bool RevivePlayer(string playerId)
+        {
+            if (State.Phase == GamePhase.Lobby || State.Phase == GamePhase.Finished || !TryGetPlayer(playerId, out var player) || player.IsAlive || !player.IsConnected) return false;
+            player.Revive();
+            return true;
+        }
+
+        public void StartGame(int totalTasks)
+        {
+            if (_players.Values.Count(p => p.IsConnected) < 2) throw new InvalidOperationException("At least two connected players are required.");
+            _votes.Clear();
+            State.Start(totalTasks);
+            PhaseChanged?.Invoke(State.Phase);
+        }
+
+        public bool EnterMeeting()
+        {
+            _votes.Clear();
+            var changed = State.EnterMeeting();
+            if (changed) PhaseChanged?.Invoke(State.Phase);
+            return changed;
+        }
+
+        public bool ExitMeeting()
+        {
+            _votes.Clear();
+            var changed = State.ExitMeeting();
+            if (changed) PhaseChanged?.Invoke(State.Phase);
+            return changed;
+        }
 
         public bool RegisterVote(string voterId, string targetId)
         {
-            if (State.Phase != GamePhase.Meeting || !_players.TryGetValue(voterId ?? string.Empty, out var voter) || !voter.IsAlive || !voter.IsConnected) return false;
-            if (!string.IsNullOrEmpty(targetId) && (!_players.TryGetValue(targetId, out var target) || !target.IsAlive || !target.IsConnected)) return false;
+            if (State.Phase != GamePhase.Meeting || !TryGetPlayer(voterId, out var voter) || !voter.IsAlive || !voter.IsConnected) return false;
+            if (!string.IsNullOrEmpty(targetId) && (!TryGetPlayer(targetId, out var target) || !target.IsAlive || !target.IsConnected)) return false;
             _votes[voterId] = targetId ?? string.Empty;
             return true;
         }
@@ -105,12 +180,57 @@ namespace Roletopia.CoreEngine
             var highest = ranked[0].Count;
             var tie = ranked.Count(x => x.Count == highest) > 1 || skipVotes >= highest;
             if (tie) return new VoteResult(null, true, skipVotes);
-            _players[ranked[0].Id].Eliminate();
+            EliminatePlayer(ranked[0].Id);
             return new VoteResult(ranked[0].Id, false, skipVotes);
         }
 
-        public bool CompleteTask() => State.CompleteTask();
+        public bool CompleteTask()
+        {
+            var completed = State.CompleteTask();
+            if (completed) EvaluateAndFinishIfWon();
+            return completed;
+        }
+
+        public WinResult EvaluateWin()
+        {
+            if (State.TotalTasks > 0 && State.CompletedTasks >= State.TotalTasks)
+                return new WinResult(TeamType.Crewmate, WinReason.TasksCompleted);
+
+            var alive = _players.Values.Where(p => p.IsAlive && p.IsConnected).ToArray();
+            var impostors = alive.Count(p => p.Team == TeamType.Impostor);
+            var nonImpostors = alive.Count(p => p.Team != TeamType.Impostor);
+
+            if (impostors == 0 && alive.Length > 0)
+                return new WinResult(TeamType.Crewmate, WinReason.ImpostorsEliminated);
+            if (impostors > 0 && impostors >= nonImpostors)
+                return new WinResult(TeamType.Impostor, WinReason.CrewmatesEliminated);
+
+            return WinResult.None;
+        }
+
+        public WinResult DeclareNeutralWinner(string playerId)
+        {
+            if (!TryGetPlayer(playerId, out var player) || player.Team != TeamType.Neutral || !player.IsConnected) return WinResult.None;
+            var result = new WinResult(TeamType.Neutral, WinReason.NeutralObjective, playerId);
+            FinishWithResult(result);
+            return result;
+        }
+
         public bool EvaluateCrewmateTaskWin() => State.TotalTasks > 0 && State.CompletedTasks >= State.TotalTasks;
-        public bool IsPlayerAlive(string playerId) => _players.TryGetValue(playerId ?? string.Empty, out var player) && player.IsAlive && player.IsConnected;
+        public bool IsPlayerAlive(string playerId) => TryGetPlayer(playerId, out var player) && player.IsAlive && player.IsConnected;
+
+        private void EvaluateAndFinishIfWon()
+        {
+            var result = EvaluateWin();
+            if (result.HasWinner) FinishWithResult(result);
+        }
+
+        private void FinishWithResult(WinResult result)
+        {
+            if (State.Phase == GamePhase.Finished) return;
+            State.FinishGame();
+            PhaseChanged?.Invoke(State.Phase);
+            GameWon?.Invoke(result);
+        }
     }
 }
