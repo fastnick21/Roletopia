@@ -196,14 +196,20 @@ namespace Roletopia.CoreEngine
             if (State.TotalTasks > 0 && State.CompletedTasks >= State.TotalTasks)
                 return new WinResult(TeamType.Crewmate, WinReason.TasksCompleted);
 
-            var alive = _players.Values.Where(p => p.IsAlive && p.IsConnected).ToArray();
-            var impostors = alive.Count(p => p.Team == TeamType.Impostor);
-            var nonImpostors = alive.Count(p => p.Team != TeamType.Impostor);
+            var connected = _players.Values.Where(p => p.IsConnected).ToArray();
+            var alive = connected.Where(p => p.IsAlive).ToArray();
+            var gameHasImpostorTeam = connected.Any(p => p.Team == TeamType.Impostor);
 
-            if (impostors == 0 && alive.Length > 0)
-                return new WinResult(TeamType.Crewmate, WinReason.ImpostorsEliminated);
-            if (impostors > 0 && impostors >= nonImpostors)
-                return new WinResult(TeamType.Impostor, WinReason.CrewmatesEliminated);
+            if (gameHasImpostorTeam)
+            {
+                var impostors = alive.Count(p => p.Team == TeamType.Impostor);
+                var nonImpostors = alive.Count(p => p.Team != TeamType.Impostor);
+
+                if (impostors == 0 && alive.Length > 0)
+                    return new WinResult(TeamType.Crewmate, WinReason.ImpostorsEliminated);
+                if (impostors > 0 && impostors >= nonImpostors)
+                    return new WinResult(TeamType.Impostor, WinReason.CrewmatesEliminated);
+            }
 
             return WinResult.None;
         }
