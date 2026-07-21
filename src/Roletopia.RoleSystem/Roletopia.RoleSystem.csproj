@@ -9,4 +9,7 @@
     <OutputPath>../../roletopia/game-code/</OutputPath>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
   </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Roletopia.CoreEngine/Roletopia.CoreEngine.csproj" />
+  </ItemGroup>
 </Project>
