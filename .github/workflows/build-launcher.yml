@@ -6,12 +6,20 @@ on:
     branches:
       - main
     paths:
+      - "src/Roletopia.AmongUsPlugin/**"
+      - "src/Roletopia.CoreEngine/**"
+      - "src/Roletopia.RoleSystem/**"
+      - "src/Roletopia.Runtime/**"
       - "src/Roletopia.Installer/**"
       - "roletopia/**"
       - "scripts/build-launcher.ps1"
       - ".github/workflows/build-launcher.yml"
   pull_request:
     paths:
+      - "src/Roletopia.AmongUsPlugin/**"
+      - "src/Roletopia.CoreEngine/**"
+      - "src/Roletopia.RoleSystem/**"
+      - "src/Roletopia.Runtime/**"
       - "src/Roletopia.Installer/**"
       - "roletopia/**"
       - "scripts/build-launcher.ps1"
@@ -33,7 +41,7 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
-      - name: Build and package launcher
+      - name: Build plugin DLLs and package launcher
         shell: pwsh
         run: ./scripts/build-launcher.ps1
 
