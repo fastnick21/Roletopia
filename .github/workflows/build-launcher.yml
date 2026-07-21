@@ -1,0 +1,46 @@
+name: Build Roletopia Launcher
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "src/Roletopia.Installer/**"
+      - "roletopia/**"
+      - "scripts/build-launcher.ps1"
+      - ".github/workflows/build-launcher.yml"
+  pull_request:
+    paths:
+      - "src/Roletopia.Installer/**"
+      - "roletopia/**"
+      - "scripts/build-launcher.ps1"
+      - ".github/workflows/build-launcher.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-launcher:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Build and package launcher
+        shell: pwsh
+        run: ./scripts/build-launcher.ps1
+
+      - name: Upload launcher package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Roletopia-Launcher-Windows
+          path: artifacts/Roletopia-Launcher-Windows.zip
+          if-no-files-found: error
+          retention-days: 30
