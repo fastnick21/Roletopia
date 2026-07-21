@@ -169,8 +169,8 @@ namespace Roletopia.RoleSystem
         {
             if (engine == null) throw new ArgumentNullException(nameof(engine));
             var players = engine.Players.Where(p => p.IsConnected).OrderBy(p => p.Id, StringComparer.Ordinal).ToList();
-            var roles = (enabledRoles ?? Enumerable.Empty<RoleType>()).Distinct().ToList();
-            if (roles.Count > players.Count) throw new InvalidOperationException("There are more enabled roles than connected players.");
+            var roles = (enabledRoles ?? Enumerable.Empty<RoleType>()).ToList();
+            if (roles.Count > players.Count) throw new InvalidOperationException("There are more configured role slots than connected players.");
 
             var random = new Random(seed);
             for (var i = players.Count - 1; i > 0; i--)
