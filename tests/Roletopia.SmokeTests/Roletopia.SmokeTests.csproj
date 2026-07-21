@@ -7,6 +7,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Roletopia.CoreEngine/Roletopia.CoreEngine.csproj" />
+    <ProjectReference Include="../../src/Roletopia.RoleSystem/Roletopia.RoleSystem.csproj" />
     <ProjectReference Include="../../src/Roletopia.Networking/Roletopia.Networking.csproj" />
     <ProjectReference Include="../../src/Roletopia.PluginLoader/Roletopia.PluginLoader.csproj" />
   </ItemGroup>
