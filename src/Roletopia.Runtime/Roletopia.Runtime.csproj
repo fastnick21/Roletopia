@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <OutputType>Library</OutputType>
+    <AssemblyName>Roletopia.Runtime</AssemblyName>
+    <RootNamespace>Roletopia.Runtime</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <OutputPath>../../roletopia/game-code/</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Roletopia.CoreEngine/Roletopia.CoreEngine.csproj" />
+    <ProjectReference Include="../Roletopia.RoleSystem/Roletopia.RoleSystem.csproj" />
+    <ProjectReference Include="../Roletopia.Networking/Roletopia.Networking.csproj" />
+  </ItemGroup>
+</Project>
