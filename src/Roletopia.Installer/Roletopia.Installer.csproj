@@ -1,24 +1,19 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
   <PropertyGroup>
     <TargetFramework>net472</TargetFramework>
-    <OutputType>Exe</OutputType>
-    <AssemblyName>Roletopia-Installer</AssemblyName>
+    <OutputType>WinExe</OutputType>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>Roletopia-Launcher</AssemblyName>
     <RootNamespace>Roletopia.Installer</RootNamespace>
     <LangVersion>latest</LangVersion>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../Roletopia.CoreEngine/Roletopia.CoreEngine.csproj" ReferenceOutputAssembly="false" />
-    <ProjectReference Include="../Roletopia.RoleSystem/Roletopia.RoleSystem.csproj" ReferenceOutputAssembly="false" />
-    <ProjectReference Include="../Roletopia.Networking/Roletopia.Networking.csproj" ReferenceOutputAssembly="false" />
-    <ProjectReference Include="../Roletopia.PluginLoader/Roletopia.PluginLoader.csproj" ReferenceOutputAssembly="false" />
-  </ItemGroup>
-
-  <ItemGroup>
     <Content Include="../../roletopia/**">
-      <Link>roletopia/%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <Link>payload/%(RecursiveDir)%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
