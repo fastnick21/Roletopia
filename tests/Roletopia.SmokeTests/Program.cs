@@ -1,6 +1,7 @@
 using Roletopia.CoreEngine;
 using Roletopia.Networking;
 using Roletopia.RoleSystem;
+using Roletopia.Runtime;
 
 var failures = new List<string>();
 void Check(bool condition, string name)
@@ -58,6 +59,21 @@ Check(network.QueueStateSync("{}"), "queue state packet");
 Check(network.FlushBroadcastQueue() == 1, "flush packet count");
 Check(transport.BroadcastCount == 1, "transport received packet");
 
+var runtimeEngine = new GameEngine();
+var adapter = new FakeRuntimeAdapter("host", "guest");
+var coordinator = new RuntimeCoordinator(runtimeEngine, new RoleAssignmentService(new RoleRegistry()), adapter);
+coordinator.Settings.DisableAllRoles();
+coordinator.Settings.GetRole(RoleType.Sheriff).Enabled = true;
+coordinator.Settings.GetRole(RoleType.Sheriff).Count = 1;
+Check(coordinator.PrepareLobby(), "runtime prepares host lobby");
+Check(coordinator.AssignConfiguredRoles(), "runtime assigns configured role");
+Check(adapter.AssignedRoles.Count == 1, "runtime sends one role to game adapter");
+Check(coordinator.ApplyHostToggle(false), "host can disable Roletopia");
+Check(!coordinator.Settings.RoletopiaEnabled, "disabled setting stored");
+Check(adapter.HudCleared && !adapter.HudVisible, "disabled mode clears custom HUD");
+Check(!coordinator.AssignConfiguredRoles(), "disabled mode blocks custom role assignment");
+Check(coordinator.ApplyHostToggle(true), "host can re-enable Roletopia");
+
 if (failures.Count > 0)
 {
     Console.Error.WriteLine("Smoke tests failed: " + string.Join(", ", failures));
@@ -72,4 +88,19 @@ sealed class FakeTransport : INetworkTransport
     public int BroadcastCount { get; private set; }
     public void SendToClient(string clientId, SyncPacket packet) { }
     public void Broadcast(SyncPacket packet) => BroadcastCount++;
+}
+
+sealed class FakeRuntimeAdapter : IAmongUsRuntimeAdapter
+{
+    public FakeRuntimeAdapter(params string[] players) => ConnectedPlayerIds = players;
+    public bool IsHost => true;
+    public IReadOnlyCollection<string> ConnectedPlayerIds { get; }
+    public Dictionary<string, RoleType> AssignedRoles { get; } = new();
+    public bool HudVisible { get; private set; }
+    public bool HudCleared { get; private set; }
+    public void ShowHostMessage(string message) { }
+    public void AssignRole(string playerId, RoleType role) => AssignedRoles[playerId] = role;
+    public void ClearRoletopiaHud() => HudCleared = true;
+    public void SetRoletopiaHudVisible(bool visible) => HudVisible = visible;
+    public void BroadcastSettings(HostModSettings settings) { }
 }
