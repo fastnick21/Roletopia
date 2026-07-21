@@ -13,6 +13,7 @@ var engine = new GameEngine();
 Check(engine.AddPlayer("a"), "add player a");
 Check(engine.AddPlayer("b"), "add player b");
 Check(engine.AddPlayer("c"), "add player c");
+Check(engine.AddPlayer("d"), "add player d");
 Check(!engine.AddPlayer("a"), "reject duplicate player");
 
 var roles = new RoleRegistry();
