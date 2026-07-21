@@ -74,13 +74,13 @@ namespace Roletopia.Runtime
     public sealed class RuntimeCoordinator
     {
         private readonly GameEngine _engine;
-        private readonly RoleManager _roles;
+        private readonly RoleAssignmentService _assignments;
         private readonly IAmongUsRuntimeAdapter _adapter;
 
-        public RuntimeCoordinator(GameEngine engine, RoleManager roles, IAmongUsRuntimeAdapter adapter)
+        public RuntimeCoordinator(GameEngine engine, RoleAssignmentService assignments, IAmongUsRuntimeAdapter adapter)
         {
             _engine = engine ?? throw new ArgumentNullException(nameof(engine));
-            _roles = roles ?? throw new ArgumentNullException(nameof(roles));
+            _assignments = assignments ?? throw new ArgumentNullException(nameof(assignments));
             _adapter = adapter ?? throw new ArgumentNullException(nameof(adapter));
         }
 
@@ -123,11 +123,15 @@ namespace Roletopia.Runtime
         {
             if (!_adapter.IsHost || !Settings.RoletopiaEnabled) return false;
 
-            var players = _adapter.ConnectedPlayerIds.OrderBy(id => id, StringComparer.Ordinal).ToArray();
             var pool = Settings.BuildRolePool();
-            if (players.Length == 0 || pool.Count == 0) return false;
+            if (_adapter.ConnectedPlayerIds.Count == 0 || pool.Count == 0) return false;
+            if (pool.Count > _adapter.ConnectedPlayerIds.Count)
+            {
+                _adapter.ShowHostMessage("Too many role slots are enabled for the number of connected players.");
+                return false;
+            }
 
-            var assignments = _roles.AssignRoles(players, pool, Settings.RandomSeed);
+            var assignments = _assignments.Assign(_engine, pool, Settings.RandomSeed);
             foreach (var assignment in assignments)
             {
                 _adapter.AssignRole(assignment.Key, assignment.Value);
