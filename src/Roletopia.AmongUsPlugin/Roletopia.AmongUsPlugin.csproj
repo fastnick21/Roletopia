@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <OutputType>Library</OutputType>
+    <AssemblyName>Roletopia</AssemblyName>
+    <RootNamespace>Roletopia.AmongUsPlugin</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RestoreAdditionalProjectSources>https://nuget.bepinex.dev/v3/index.json</RestoreAdditionalProjectSources>
+    <OutputPath>../../roletopia/game-code/</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BepInEx.Unity.IL2CPP" Version="6.0.0-be.785" PrivateAssets="all" />
+    <PackageReference Include="Lib.Harmony" Version="2.3.6" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Roletopia.CoreEngine/Roletopia.CoreEngine.csproj" />
+    <ProjectReference Include="../Roletopia.RoleSystem/Roletopia.RoleSystem.csproj" />
+    <ProjectReference Include="../Roletopia.Runtime/Roletopia.Runtime.csproj" />
+  </ItemGroup>
+</Project>
