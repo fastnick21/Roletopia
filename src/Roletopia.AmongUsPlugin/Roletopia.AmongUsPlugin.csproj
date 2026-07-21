@@ -2,14 +2,15 @@
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
     <OutputType>Library</OutputType>
-    <AssemblyName>Roletopia</AssemblyName>
+    <AssemblyName>Roletopia.Plugin</AssemblyName>
     <RootNamespace>Roletopia.AmongUsPlugin</RootNamespace>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RestoreAdditionalProjectSources>https://nuget.bepinex.dev/v3/index.json</RestoreAdditionalProjectSources>
-    <OutputPath>../../roletopia/game-code/</OutputPath>
+    <OutputPath>../../roletopia/BepInEx/plugins/Roletopia/</OutputPath>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
   </PropertyGroup>
 
   <ItemGroup>
