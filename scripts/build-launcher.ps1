@@ -13,6 +13,7 @@ $payloadRoot = Join-Path $repoRoot "roletopia"
 $pluginPayload = Join-Path $payloadRoot "BepInEx/plugins/Roletopia"
 $outputRoot = Join-Path $repoRoot $OutputDirectory
 $publishRoot = Join-Path $outputRoot "Roletopia-Launcher"
+$packagedPayload = Join-Path $publishRoot "payload"
 $zipPath = Join-Path $outputRoot "Roletopia-Launcher-Windows.zip"
 $tempRoot = Join-Path $outputRoot "temp"
 $bepInExZip = Join-Path $tempRoot "BepInEx-Unity.IL2CPP-win-x64.zip"
@@ -33,7 +34,7 @@ if (-not (Test-Path $bepInExZip) -or (Get-Item $bepInExZip).Length -lt 1MB) {
     throw "BepInEx download was missing or unexpectedly small."
 }
 
-Write-Host "Extracting BepInEx into launcher payload..."
+Write-Host "Extracting BepInEx into staging payload..."
 Expand-Archive -Path $bepInExZip -DestinationPath $payloadRoot -Force
 
 $requiredLoaderFiles = @(
@@ -59,23 +60,25 @@ if (-not (Test-Path $pluginDll)) {
     throw "Roletopia plugin DLL was not produced: $pluginDll"
 }
 
-Write-Host "Plugin produced: $pluginDll"
-Get-ChildItem $pluginPayload -Filter "*.dll" | ForEach-Object {
-    Write-Host "  $($_.Name)"
-}
-
 Write-Host "Restoring launcher..."
 dotnet restore $launcherProject
 
-Write-Host "Building launcher with complete payload..."
+Write-Host "Building launcher without payload assemblies in compiler inputs..."
 dotnet build $launcherProject -c $Configuration --no-restore -o $publishRoot
 
 $launcher = Join-Path $publishRoot "Roletopia-Launcher.exe"
-$packagedPlugin = Join-Path $publishRoot "payload/BepInEx/plugins/Roletopia/Roletopia.Plugin.dll"
-$packagedWinHttp = Join-Path $publishRoot "payload/winhttp.dll"
-$packagedCore = Join-Path $publishRoot "payload/BepInEx/core"
+if (-not (Test-Path $launcher)) {
+    throw "Launcher executable was not produced: $launcher"
+}
 
-foreach ($required in @($launcher, $packagedPlugin, $packagedWinHttp, $packagedCore)) {
+Write-Host "Copying complete payload into packaged launcher after compilation..."
+Copy-Item -Path $payloadRoot -Destination $packagedPayload -Recurse -Force
+
+$packagedPlugin = Join-Path $packagedPayload "BepInEx/plugins/Roletopia/Roletopia.Plugin.dll"
+$packagedWinHttp = Join-Path $packagedPayload "winhttp.dll"
+$packagedCore = Join-Path $packagedPayload "BepInEx/core"
+
+foreach ($required in @($packagedPlugin, $packagedWinHttp, $packagedCore)) {
     if (-not (Test-Path $required)) {
         throw "Required packaged file or folder is missing: $required"
     }
