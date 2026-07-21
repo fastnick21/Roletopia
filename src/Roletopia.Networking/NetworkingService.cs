@@ -1,5 +1,5 @@
 using System;
-using System.Collections.Generic;
+using System.Collections.Concurrent;
 
 namespace Roletopia.Networking
 {
@@ -18,28 +18,38 @@ namespace Roletopia.Networking
     public sealed class NetworkingService
     {
         private readonly INetworkTransport _transport;
-        private readonly Queue<SyncPacket> _outboundQueue = new Queue<SyncPacket>();
+        private readonly ConcurrentQueue<SyncPacket> _outboundQueue = new ConcurrentQueue<SyncPacket>();
 
         public NetworkingService(INetworkTransport transport)
         {
             _transport = transport ?? throw new ArgumentNullException(nameof(transport));
         }
 
-        public void QueueStateSync(string payload)
+        public int PendingPacketCount => _outboundQueue.Count;
+
+        public bool QueueStateSync(string payload)
         {
-            _outboundQueue.Enqueue(new SyncPacket
-            {
-                Type = "state-sync",
-                Payload = payload ?? string.Empty
-            });
+            if (payload == null) return false;
+            _outboundQueue.Enqueue(new SyncPacket { Type = "state-sync", Payload = payload });
+            return true;
         }
 
-        public void FlushBroadcastQueue()
+        public bool QueuePacket(string type, string payload)
         {
-            while (_outboundQueue.Count > 0)
+            if (string.IsNullOrWhiteSpace(type) || payload == null) return false;
+            _outboundQueue.Enqueue(new SyncPacket { Type = type.Trim(), Payload = payload });
+            return true;
+        }
+
+        public int FlushBroadcastQueue()
+        {
+            var sent = 0;
+            while (_outboundQueue.TryDequeue(out var packet))
             {
-                _transport.Broadcast(_outboundQueue.Dequeue());
+                _transport.Broadcast(packet);
+                sent++;
             }
+            return sent;
         }
     }
 }
