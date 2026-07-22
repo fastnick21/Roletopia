@@ -16,18 +16,22 @@ $publishRoot = Join-Path $outputRoot "Roletopia-Launcher"
 $packagedPayload = Join-Path $publishRoot "payload"
 $zipPath = Join-Path $outputRoot "Roletopia-Launcher-Windows.zip"
 $tempRoot = Join-Path $outputRoot "temp"
-$bepInExZip = Join-Path $tempRoot "BepInEx-Unity.IL2CPP-win-x64.zip"
-$bepInExUrl = "https://builds.bepinex.dev/projects/bepinex_be/785/BepInEx-Unity.IL2CPP-win-x64-6.0.0-be.785%2B6abdba4.zip"
+$bepInExZip = Join-Path $tempRoot "BepInEx-Unity.IL2CPP-win-x86.zip"
+$bepInExUrl = "https://builds.bepinex.dev/projects/bepinex_be/785/BepInEx-Unity.IL2CPP-win-x86-6.0.0-be.785%2B6abdba4.zip"
 
 if (Test-Path $outputRoot) {
     Remove-Item $outputRoot -Recurse -Force
+}
+
+if (Test-Path $payloadRoot) {
+    Remove-Item $payloadRoot -Recurse -Force
 }
 
 New-Item -ItemType Directory -Path $publishRoot -Force | Out-Null
 New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null
 New-Item -ItemType Directory -Path $pluginPayload -Force | Out-Null
 
-Write-Host "Downloading official BepInEx 6 IL2CPP Windows x64 loader..."
+Write-Host "Downloading official BepInEx 6 IL2CPP Windows x86 loader..."
 Invoke-WebRequest -Uri $bepInExUrl -OutFile $bepInExZip -UseBasicParsing
 
 if (-not (Test-Path $bepInExZip) -or (Get-Item $bepInExZip).Length -lt 1MB) {
@@ -95,7 +99,7 @@ Roletopia Launcher
 5. Click Play Roletopia.
 
 The first modded launch may take longer while BepInEx creates its runtime files.
-This package includes the Roletopia plugin and BepInEx 6 IL2CPP Windows x64 loader.
+This package includes the Roletopia plugin and BepInEx 6 IL2CPP Windows x86 loader.
 "@
 Set-Content -Path (Join-Path $publishRoot "README.txt") -Value $readme -Encoding UTF8
 
