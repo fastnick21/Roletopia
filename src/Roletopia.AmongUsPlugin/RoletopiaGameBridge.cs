@@ -1,3 +1,4 @@
+using System.Reflection;
 using BepInEx.Logging;
 using Roletopia.Runtime;
 
@@ -64,13 +65,68 @@ internal static class RoletopiaGameBridge
         });
     }
 
-    public static void ReturnedToMainMenu()
+    public static void MainMenuStarted(object __instance)
     {
-        SafeInvoke("main-menu return", () =>
+        SafeInvoke("main-menu start", () =>
         {
             _lifecycle?.OnReturnedToMainMenu();
+            TryAddMainMenuMarker(__instance);
             return true;
         });
+    }
+
+    private static void TryAddMainMenuMarker(object instance)
+    {
+        if (instance == null) return;
+
+        const string marker = "Roletopia 0.1.0-alpha loaded";
+        var flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        var type = instance.GetType();
+
+        foreach (var member in type.GetFields(flags).Cast<MemberInfo>().Concat(type.GetProperties(flags)))
+        {
+            object? value;
+            try
+            {
+                value = member switch
+                {
+                    FieldInfo field => field.GetValue(instance),
+                    PropertyInfo property when property.GetIndexParameters().Length == 0 && property.CanRead => property.GetValue(instance),
+                    _ => null
+                };
+            }
+            catch
+            {
+                continue;
+            }
+
+            if (value == null) continue;
+            var valueType = value.GetType();
+            var textProperty = valueType.GetProperty("text", flags) ?? valueType.GetProperty("Text", flags);
+            if (textProperty?.CanRead != true || textProperty.CanWrite != true || textProperty.PropertyType != typeof(string)) continue;
+
+            var memberName = member.Name;
+            if (!memberName.Contains("version", StringComparison.OrdinalIgnoreCase) &&
+                !memberName.Contains("build", StringComparison.OrdinalIgnoreCase)) continue;
+
+            try
+            {
+                var current = textProperty.GetValue(value) as string ?? string.Empty;
+                if (!current.Contains("Roletopia", StringComparison.OrdinalIgnoreCase))
+                {
+                    textProperty.SetValue(value, current + "\n" + marker);
+                    _log?.LogInfo($"Added Roletopia marker through {type.Name}.{memberName}.");
+                }
+                return;
+            }
+            catch (Exception exception)
+            {
+                _log?.LogWarning($"Could not update menu text member {memberName}: {exception.Message}");
+            }
+        }
+
+        var memberNames = string.Join(", ", type.GetMembers(flags).Select(member => member.Name).Distinct().OrderBy(name => name));
+        _log?.LogWarning($"Main-menu marker target not found on {type.FullName}. Available members: {memberNames}");
     }
 
     private static void SafeInvoke(string eventName, Func<bool?> callback)
