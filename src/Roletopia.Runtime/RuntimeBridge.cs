@@ -115,6 +115,10 @@ namespace Roletopia.Runtime
                 _engine.AddPlayer(playerId);
             }
 
+            _adapter.SetRoletopiaHudVisible(Settings.RoletopiaEnabled);
+            _adapter.ShowHostMessage(Settings.RoletopiaEnabled
+                ? "Roletopia is active. Roles will be assigned when the game starts."
+                : "Roletopia is disabled for this lobby.");
             _adapter.BroadcastSettings(Settings);
             return true;
         }
@@ -123,18 +127,23 @@ namespace Roletopia.Runtime
         {
             if (!_adapter.IsHost || !Settings.RoletopiaEnabled) return false;
 
-            var pool = Settings.BuildRolePool();
-            if (_adapter.ConnectedPlayerIds.Count == 0 || pool.Count == 0) return false;
-            if (pool.Count > _adapter.ConnectedPlayerIds.Count)
-            {
-                _adapter.ShowHostMessage("Too many role slots are enabled for the number of connected players.");
-                return false;
-            }
+            var players = _adapter.ConnectedPlayerIds.ToArray();
+            var configuredPool = Settings.BuildRolePool();
+            if (players.Length == 0 || configuredPool.Count == 0) return false;
 
-            var assignments = _assignments.Assign(_engine, pool, Settings.RandomSeed);
+            // The original alpha rejected every lobby with fewer players than the
+            // eleven default role slots. Select only as many configured roles as
+            // there are connected players so normal-size test lobbies can start.
+            var rolePool = configuredPool.Take(players.Length).ToArray();
+            var assignments = _assignments.Assign(_engine, rolePool, Settings.RandomSeed);
             foreach (var assignment in assignments)
             {
                 _adapter.AssignRole(assignment.Key, assignment.Value);
+            }
+
+            if (assignments.Count > 0)
+            {
+                _adapter.ShowHostMessage($"Roletopia assigned {assignments.Count} role(s).");
             }
 
             return assignments.Count > 0;
