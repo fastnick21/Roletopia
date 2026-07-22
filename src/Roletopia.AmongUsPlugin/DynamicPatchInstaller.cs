@@ -16,7 +16,7 @@ internal static class DynamicPatchInstaller
         new("MeetingHud", "Close", nameof(RoletopiaGameBridge.MeetingEnded)),
         new("PlayerControl", "CompleteTask", nameof(RoletopiaGameBridge.TaskCompleted)),
         new("EndGameManager", "Start", nameof(RoletopiaGameBridge.GameEnded)),
-        new("MainMenuManager", "Start", nameof(RoletopiaGameBridge.ReturnedToMainMenu))
+        new("MainMenuManager", "Start", nameof(RoletopiaGameBridge.MainMenuStarted))
     };
 
     public static int Install(Harmony harmony, ManualLogSource log)
