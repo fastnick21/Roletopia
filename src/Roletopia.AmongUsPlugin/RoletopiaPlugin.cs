@@ -30,8 +30,6 @@ public sealed class RoletopiaPlugin : BasePlugin
             var lifecycle = new AmongUsLifecycleController(engine, coordinator, new BepInExRuntimeLogger(Log));
 
             RoletopiaGameBridge.Initialize(lifecycle, coordinator, adapter, Log);
-            AddComponent<RoletopiaOverlay>();
-            RoletopiaOverlay.SetStatus("Loaded — enter or host a lobby");
 
             _harmony = new Harmony(PluginGuid);
             var installed = DynamicPatchInstaller.Install(_harmony, Log);
