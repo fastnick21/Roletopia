@@ -32,42 +32,22 @@ internal static class RoletopiaGameBridge
 
     public static void LobbyCreated()
     {
-        SafeInvoke("lobby creation", () =>
-        {
-            var accepted = _lifecycle?.OnLobbyCreated();
-            RoletopiaOverlay.SetStatus(accepted == true ? "Lobby ready — Roletopia enabled" : "Lobby joined — host controls Roletopia");
-            return accepted;
-        });
+        SafeInvoke("lobby creation", () => _lifecycle?.OnLobbyCreated());
     }
 
     public static void GameStarting()
     {
-        SafeInvoke("game start", () =>
-        {
-            var accepted = _lifecycle?.OnGameStarting(0);
-            RoletopiaOverlay.SetStatus(accepted == true ? "Game active" : "Game start not prepared");
-            return accepted;
-        });
+        SafeInvoke("game start", () => _lifecycle?.OnGameStarting(0));
     }
 
     public static void MeetingStarted()
     {
-        SafeInvoke("meeting start", () =>
-        {
-            var accepted = _lifecycle?.OnMeetingStarted();
-            if (accepted == true) RoletopiaOverlay.SetStatus("Meeting");
-            return accepted;
-        });
+        SafeInvoke("meeting start", () => _lifecycle?.OnMeetingStarted());
     }
 
     public static void MeetingEnded()
     {
-        SafeInvoke("meeting end", () =>
-        {
-            var accepted = _lifecycle?.OnMeetingEnded();
-            if (accepted == true) RoletopiaOverlay.SetStatus("Game active");
-            return accepted;
-        });
+        SafeInvoke("meeting end", () => _lifecycle?.OnMeetingEnded());
     }
 
     public static void TaskCompleted()
@@ -80,7 +60,6 @@ internal static class RoletopiaGameBridge
         SafeInvoke("game end", () =>
         {
             _lifecycle?.OnGameEnded();
-            RoletopiaOverlay.SetStatus("Results");
             return true;
         });
     }
@@ -90,7 +69,6 @@ internal static class RoletopiaGameBridge
         SafeInvoke("main-menu return", () =>
         {
             _lifecycle?.OnReturnedToMainMenu();
-            RoletopiaOverlay.SetStatus("Loaded — enter or host a lobby");
             return true;
         });
     }
@@ -104,7 +82,6 @@ internal static class RoletopiaGameBridge
         }
         catch (Exception exception)
         {
-            RoletopiaOverlay.SetStatus($"Error during {eventName}");
             _log?.LogError($"Roletopia failed while handling {eventName}: {exception}");
         }
     }
