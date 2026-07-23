@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Reflection;
 using BepInEx.Logging;
 using Roletopia.Runtime;
@@ -83,8 +84,25 @@ internal static class RoletopiaGameBridge
         var flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
         var type = instance.GetType();
 
-        // Prefer a version/build label when one exists. Among Us v17.4 does not expose
-        // one directly on MainMenuManager, so visible menu buttons are safe fallbacks.
+        // v17.4 exposes real menu buttons (newsButton, settingsButton, etc.) on
+        // MainMenuManager. Prefer their live TextMeshPro components. This avoids
+        // accidentally writing to a wrapper/localization field that never renders.
+        foreach (var memberName in new[] { "newsButton", "settingsButton", "howToPlayButton", "playButton", "creditsButton" })
+        {
+            var member = type.GetField(memberName, flags) as MemberInfo ?? type.GetProperty(memberName, flags);
+            if (member == null) continue;
+
+            var button = ReadMember(instance, member);
+            if (button == null) continue;
+
+            if (TryMarkLiveTextComponents(button, marker))
+            {
+                _log?.LogInfo($"Added LIVE visible Roletopia marker through {type.Name}.{memberName}.");
+                return;
+            }
+        }
+
+        // Keep the older reflection fallback for versions where the button layout differs.
         var preferredNames = new[]
         {
             "version", "build", "creditsButton", "newsButton", "settingsButton",
@@ -107,11 +125,101 @@ internal static class RoletopiaGameBridge
             var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
             if (!TrySetTextRecursive(value, marker, flags, visited, 0)) continue;
 
-            _log?.LogInfo($"Added visible Roletopia marker through {type.Name}.{member.Name}.");
+            _log?.LogInfo($"Added fallback Roletopia marker through {type.Name}.{member.Name}.");
             return;
         }
 
-        _log?.LogWarning("Could not find a writable main-menu text target. Roletopia remains loaded; only the visual marker was skipped.");
+        _log?.LogWarning("Could not find a live writable main-menu text component. Roletopia remains loaded; only the visual marker was skipped.");
+    }
+
+    private static bool TryMarkLiveTextComponents(object button, string marker)
+    {
+        try
+        {
+            var tmpType = ResolveType("TMPro.TextMeshPro", "Unity.TextMeshPro");
+            var tmpUiType = ResolveType("TMPro.TextMeshProUGUI", "Unity.TextMeshPro");
+
+            return (tmpType != null && TryMarkComponentsOfType(button, tmpType, marker)) ||
+                   (tmpUiType != null && TryMarkComponentsOfType(button, tmpUiType, marker));
+        }
+        catch (Exception exception)
+        {
+            _log?.LogWarning($"Live menu text lookup failed: {exception.Message}");
+            return false;
+        }
+    }
+
+    private static Type? ResolveType(string fullName, string assemblyName)
+    {
+        var type = Type.GetType($"{fullName}, {assemblyName}", throwOnError: false);
+        if (type != null) return type;
+
+        foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+        {
+            try
+            {
+                type = assembly.GetType(fullName, throwOnError: false, ignoreCase: false);
+                if (type != null) return type;
+            }
+            catch
+            {
+                // Some IL2CPP proxy assemblies contain unloadable metadata. Skip them.
+            }
+        }
+
+        return null;
+    }
+
+    private static bool TryMarkComponentsOfType(object button, Type componentType, string marker)
+    {
+        object? owner = button;
+        var gameObjectProperty = button.GetType().GetProperty("gameObject", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        if (gameObjectProperty?.CanRead == true)
+        {
+            try { owner = gameObjectProperty.GetValue(button) ?? button; }
+            catch { owner = button; }
+        }
+
+        var method = owner.GetType().GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+            .FirstOrDefault(candidate =>
+            {
+                if (candidate.Name != "GetComponentsInChildren" || candidate.IsGenericMethod) return false;
+                var parameters = candidate.GetParameters();
+                return parameters.Length == 2 &&
+                       parameters[0].ParameterType == typeof(Type) &&
+                       parameters[1].ParameterType == typeof(bool);
+            });
+
+        if (method == null) return false;
+        if (method.Invoke(owner, new object[] { componentType, true }) is not IEnumerable components) return false;
+
+        foreach (var component in components)
+        {
+            if (component == null) continue;
+            var textProperty = component.GetType().GetProperty("text", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+                ?? component.GetType().GetProperty("Text", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (textProperty?.CanRead != true || textProperty.CanWrite != true || textProperty.PropertyType != typeof(string)) continue;
+
+            string current;
+            try { current = textProperty.GetValue(component) as string ?? string.Empty; }
+            catch { continue; }
+
+            if (current.Contains("Roletopia", StringComparison.OrdinalIgnoreCase)) return true;
+            if (string.IsNullOrWhiteSpace(current)) continue;
+
+            try
+            {
+                textProperty.SetValue(component, current + "\n<size=55%>" + marker + "</size>");
+                _log?.LogInfo($"Live TMP marker changed '{current}' on {component.GetType().FullName}.");
+                return true;
+            }
+            catch
+            {
+                // Try the next text component on the button.
+            }
+        }
+
+        return false;
     }
 
     private static object? ReadMember(object owner, MemberInfo member)
