@@ -170,7 +170,13 @@ namespace Roletopia.Runtime
 
         public string BuildHostSidebarText(RoleType selectedRole, int selectedSetting)
         {
-            var lines = new List<string> { "ROLETOPIA HOST", "" };
+            var lines = new List<string>
+            {
+                "ROLETOPIA HOST",
+                "ROLE SETTINGS",
+                ""
+            };
+
             foreach (var option in Settings.Roles)
             {
                 var cursor = option.Role == selectedRole ? ">" : " ";
@@ -187,9 +193,15 @@ namespace Roletopia.Runtime
                 var shown = setting.Max == 1 && setting.Min == 0 ? (setting.Value >= 0.5 ? "ON" : "OFF") : setting.Value.ToString("0.##");
                 lines.Add($"{cursor} {setting.DisplayName}: {shown}");
             }
+
             lines.Add("");
-            lines.Add("F6 hide | Up/Down role | Left/Right count");
-            lines.Add("Enter toggle | [ / ] setting | - / + value");
+            lines.Add("CONTROLS");
+            lines.Add("[UP] [DOWN]   Select role");
+            lines.Add("[LEFT] [RIGHT] Change quantity");
+            lines.Add("[ENTER]       Enable / disable role");
+            lines.Add("[ [ ] [ ] ]   Select role setting");
+            lines.Add("[-] [+]       Change setting value");
+            lines.Add("[F6]          Hide / show sidebar");
             return string.Join("\n", lines);
         }
 
