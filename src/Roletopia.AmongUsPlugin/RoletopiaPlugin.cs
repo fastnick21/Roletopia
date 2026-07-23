@@ -30,12 +30,14 @@ public sealed class RoletopiaPlugin : BasePlugin
             var lifecycle = new AmongUsLifecycleController(engine, coordinator, new BepInExRuntimeLogger(Log));
 
             RoletopiaGameBridge.Initialize(lifecycle, coordinator, adapter, Log);
+            MainMenuMarkerPatch.Initialize(Log);
 
             _harmony = new Harmony(PluginGuid);
             var installed = DynamicPatchInstaller.Install(_harmony, Log);
+            _harmony.PatchAll(typeof(MainMenuMarkerPatch).Assembly);
             lifecycle.OnPluginLoaded();
 
-            Log.LogInfo($"Roletopia loaded. Installed {installed} Among Us lifecycle hooks.");
+            Log.LogInfo($"Roletopia loaded. Installed {installed} Among Us lifecycle hooks plus visual patches.");
         }
         catch (Exception exception)
         {
