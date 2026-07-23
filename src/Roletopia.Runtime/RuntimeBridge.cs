@@ -6,8 +6,32 @@ using Roletopia.RoleSystem;
 
 namespace Roletopia.Runtime
 {
+    public sealed class RoleSetting
+    {
+        public RoleSetting(string key, string displayName, double value, double min, double max, double step)
+        {
+            Key = key;
+            DisplayName = displayName;
+            Value = value;
+            Min = min;
+            Max = max;
+            Step = Math.Max(0.01, step);
+        }
+
+        public string Key { get; }
+        public string DisplayName { get; }
+        public double Value { get; set; }
+        public double Min { get; }
+        public double Max { get; }
+        public double Step { get; }
+
+        public void Adjust(int direction) => Value = Math.Clamp(Value + (Step * direction), Min, Max);
+    }
+
     public sealed class RoleOption
     {
+        private readonly List<RoleSetting> _settings = new();
+
         public RoleOption(RoleType role, bool enabled, int count)
         {
             Role = role;
@@ -18,6 +42,15 @@ namespace Roletopia.Runtime
         public RoleType Role { get; }
         public bool Enabled { get; set; }
         public int Count { get; set; }
+        public IReadOnlyList<RoleSetting> Settings => _settings;
+
+        public RoleOption Add(string key, string displayName, double value, double min, double max, double step)
+        {
+            _settings.Add(new RoleSetting(key, displayName, value, min, max, step));
+            return this;
+        }
+
+        public RoleSetting? GetSetting(string key) => _settings.FirstOrDefault(s => s.Key.Equals(key, StringComparison.OrdinalIgnoreCase));
     }
 
     public sealed class HostModSettings
@@ -28,19 +61,32 @@ namespace Roletopia.Runtime
         {
             _roles = Enum.GetValues(typeof(RoleType))
                 .Cast<RoleType>()
-                .ToDictionary(role => role, role => new RoleOption(role, false, 0));
+                .ToDictionary(role => role, role => new RoleOption(role, true, 1));
 
-            // First playable milestone: Sheriff only by default. This keeps early tests
-            // deterministic and avoids assigning unfinished roles while we wire the HUD.
-            _roles[RoleType.Sheriff].Enabled = true;
-            _roles[RoleType.Sheriff].Count = 1;
+            Configure(RoleType.Sheriff, ("cooldown", "Kill Cooldown", 30d, 5d, 90d, 5d), ("misfire", "Misfire Kills Sheriff", 1d, 0d, 1d, 1d));
+            Configure(RoleType.Medium, ("cooldown", "Seance Cooldown", 20d, 5d, 90d, 5d), ("duration", "Seance Duration", 8d, 2d, 30d, 1d));
+            Configure(RoleType.Snitch, ("tasks", "Tasks Until Reveal", 1d, 0d, 10d, 1d), ("reveal", "Reveal Impostors", 1d, 0d, 1d, 1d));
+            Configure(RoleType.Engineer, ("cooldown", "Vent Cooldown", 25d, 0d, 90d, 5d), ("duration", "Max Vent Time", 10d, 1d, 60d, 1d));
+            Configure(RoleType.Guardian, ("cooldown", "Shield Cooldown", 30d, 5d, 90d, 5d), ("duration", "Shield Duration", 15d, 2d, 60d, 1d));
+            Configure(RoleType.Arsonist, ("cooldown", "Douse Cooldown", 15d, 3d, 60d, 3d), ("douse", "Douse Duration", 3d, 1d, 10d, 1d));
+            Configure(RoleType.Jester, ("vent", "Can Vent", 0d, 0d, 1d, 1d), ("tasks", "Has Fake Tasks", 1d, 0d, 1d, 1d));
+            Configure(RoleType.Hacker, ("cooldown", "Hack Cooldown", 25d, 5d, 90d, 5d), ("duration", "Hack Duration", 10d, 2d, 30d, 1d));
+            Configure(RoleType.Ninja, ("cooldown", "Strike Cooldown", 30d, 5d, 90d, 5d), ("duration", "Invisible Duration", 8d, 1d, 30d, 1d));
+            Configure(RoleType.Assassin, ("cooldown", "Guess Cooldown", 35d, 5d, 90d, 5d), ("uses", "Guesses Per Game", 2d, 1d, 10d, 1d));
+            Configure(RoleType.Dragon, ("cooldown", "Burn Cooldown", 40d, 5d, 120d, 5d), ("duration", "Burn Duration", 6d, 1d, 30d, 1d));
         }
 
         public bool RoletopiaEnabled { get; set; } = true;
         public int RandomSeed { get; set; }
-        public IReadOnlyCollection<RoleOption> Roles => _roles.Values.ToArray();
+        public IReadOnlyCollection<RoleOption> Roles => _roles.Values.OrderBy(r => r.Role).ToArray();
 
         public RoleOption GetRole(RoleType role) => _roles[role];
+
+        private void Configure(RoleType role, params (string key, string label, double value, double min, double max, double step)[] settings)
+        {
+            foreach (var setting in settings)
+                _roles[role].Add(setting.key, setting.label, setting.value, setting.min, setting.max, setting.step);
+        }
 
         public void DisableAllRoles()
         {
@@ -90,6 +136,62 @@ namespace Roletopia.Runtime
         }
 
         public HostModSettings Settings { get; } = new HostModSettings();
+        public bool IsHost => _adapter.IsHost;
+
+        public bool ToggleRole(RoleType role)
+        {
+            if (!_adapter.IsHost) return false;
+            var option = Settings.GetRole(role);
+            option.Enabled = !option.Enabled;
+            if (option.Enabled && option.Count == 0) option.Count = 1;
+            _adapter.BroadcastSettings(Settings);
+            return true;
+        }
+
+        public bool AdjustRoleCount(RoleType role, int delta)
+        {
+            if (!_adapter.IsHost) return false;
+            var option = Settings.GetRole(role);
+            option.Count = Math.Clamp(option.Count + delta, 0, 15);
+            option.Enabled = option.Count > 0;
+            _adapter.BroadcastSettings(Settings);
+            return true;
+        }
+
+        public bool AdjustRoleSetting(RoleType role, int settingIndex, int direction)
+        {
+            if (!_adapter.IsHost) return false;
+            var option = Settings.GetRole(role);
+            if (settingIndex < 0 || settingIndex >= option.Settings.Count) return false;
+            option.Settings[settingIndex].Adjust(direction);
+            _adapter.BroadcastSettings(Settings);
+            return true;
+        }
+
+        public string BuildHostSidebarText(RoleType selectedRole, int selectedSetting)
+        {
+            var lines = new List<string> { "ROLETOPIA HOST", "" };
+            foreach (var option in Settings.Roles)
+            {
+                var cursor = option.Role == selectedRole ? ">" : " ";
+                lines.Add($"{cursor} {option.Role,-10} x{option.Count} {(option.Enabled ? "ON" : "OFF")}");
+            }
+
+            var current = Settings.GetRole(selectedRole);
+            lines.Add("");
+            lines.Add($"{selectedRole} SETTINGS");
+            for (var i = 0; i < current.Settings.Count; i++)
+            {
+                var setting = current.Settings[i];
+                var cursor = i == selectedSetting ? ">" : " ";
+                var shown = setting.Max == 1 && setting.Min == 0 ? (setting.Value >= 0.5 ? "ON" : "OFF") : setting.Value.ToString("0.##");
+                lines.Add($"{cursor} {setting.DisplayName}: {shown}");
+            }
+            lines.Add("");
+            lines.Add("F6 hide | Up/Down role | Left/Right count");
+            lines.Add("Enter toggle | [ / ] setting | - / + value");
+            return string.Join("\n", lines);
+        }
 
         public bool ApplyHostToggle(bool enabled)
         {
@@ -116,13 +218,11 @@ namespace Roletopia.Runtime
             if (!_adapter.IsHost) return false;
 
             foreach (var playerId in _adapter.ConnectedPlayerIds)
-            {
                 _engine.AddPlayer(playerId);
-            }
 
             _adapter.SetRoletopiaHudVisible(Settings.RoletopiaEnabled);
             _adapter.ShowHostMessage(Settings.RoletopiaEnabled
-                ? "Roletopia is active. Sheriff will be assigned when the game starts."
+                ? "Roletopia is active. Host role settings are available in the lobby sidebar."
                 : "Roletopia is disabled for this lobby.");
             _adapter.BroadcastSettings(Settings);
             return true;
@@ -133,20 +233,23 @@ namespace Roletopia.Runtime
             if (!_adapter.IsHost || !Settings.RoletopiaEnabled) return false;
 
             var players = _adapter.ConnectedPlayerIds.ToArray();
-            var configuredPool = Settings.BuildRolePool();
+            var configuredPool = Settings.BuildRolePool().ToList();
             if (players.Length == 0 || configuredPool.Count == 0) return false;
+
+            var random = new Random(Settings.RandomSeed);
+            for (var i = configuredPool.Count - 1; i > 0; i--)
+            {
+                var j = random.Next(i + 1);
+                (configuredPool[i], configuredPool[j]) = (configuredPool[j], configuredPool[i]);
+            }
 
             var rolePool = configuredPool.Take(players.Length).ToArray();
             var assignments = _assignments.Assign(_engine, rolePool, Settings.RandomSeed);
             foreach (var assignment in assignments)
-            {
                 _adapter.AssignRole(assignment.Key, assignment.Value);
-            }
 
             if (assignments.Count > 0)
-            {
                 _adapter.ShowHostMessage($"Roletopia assigned {assignments.Count} role(s).");
-            }
 
             return assignments.Count > 0;
         }
