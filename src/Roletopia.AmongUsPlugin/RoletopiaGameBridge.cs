@@ -11,6 +11,8 @@ internal static class RoletopiaGameBridge
     private static RuntimeCoordinator? _coordinator;
     private static ReflectionAmongUsAdapter? _adapter;
     private static ManualLogSource? _log;
+    private static int _mainMenuLateUpdateFrames;
+    private static bool _lateMenuMarkerApplied;
 
     public static void Initialize(
         AmongUsLifecycleController lifecycle,
@@ -30,6 +32,8 @@ internal static class RoletopiaGameBridge
         _coordinator = null;
         _adapter = null;
         _log = null;
+        _mainMenuLateUpdateFrames = 0;
+        _lateMenuMarkerApplied = false;
     }
 
     public static void LobbyCreated()
@@ -71,14 +75,40 @@ internal static class RoletopiaGameBridge
         SafeInvoke("main-menu start", () =>
         {
             _lifecycle?.OnReturnedToMainMenu();
-            TryAddMainMenuMarker(__instance);
+            _mainMenuLateUpdateFrames = 0;
+            _lateMenuMarkerApplied = false;
+            _log?.LogInfo("Main menu started; delaying visible marker until startup/localization has finished.");
             return true;
         });
     }
 
-    private static void TryAddMainMenuMarker(object instance)
+    public static void MainMenuLateUpdate(object __instance)
     {
-        if (instance == null) return;
+        if (__instance == null || _lateMenuMarkerApplied) return;
+
+        _mainMenuLateUpdateFrames++;
+        if (_mainMenuLateUpdateFrames < 120) return;
+        if ((_mainMenuLateUpdateFrames - 120) % 120 != 0) return;
+
+        SafeInvoke("late main-menu marker", () =>
+        {
+            var applied = TryAddMainMenuMarker(__instance);
+            if (applied)
+            {
+                _lateMenuMarkerApplied = true;
+                _log?.LogInfo($"Late main-menu marker applied after {_mainMenuLateUpdateFrames} LateUpdate frames.");
+            }
+            else
+            {
+                _log?.LogWarning($"Late main-menu marker attempt {_mainMenuLateUpdateFrames} did not find a rendered label; will retry.");
+            }
+            return applied;
+        });
+    }
+
+    private static bool TryAddMainMenuMarker(object instance)
+    {
+        if (instance == null) return false;
 
         const string marker = "Roletopia 0.1.0-alpha loaded";
         var flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
@@ -98,11 +128,13 @@ internal static class RoletopiaGameBridge
             if (TryMarkLiveTextComponents(button, marker))
             {
                 _log?.LogInfo($"Added LIVE visible Roletopia marker through {type.Name}.{memberName}.");
-                return;
+                return true;
             }
         }
 
         // Keep the older reflection fallback for versions where the button layout differs.
+        // Running this from LateUpdate is important: MainMenuManager.RunStartUp/localization
+        // can overwrite labels that were changed in Start().
         var preferredNames = new[]
         {
             "version", "build", "creditsButton", "newsButton", "settingsButton",
@@ -125,11 +157,12 @@ internal static class RoletopiaGameBridge
             var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
             if (!TrySetTextRecursive(value, marker, flags, visited, 0)) continue;
 
-            _log?.LogInfo($"Added fallback Roletopia marker through {type.Name}.{member.Name}.");
-            return;
+            _log?.LogInfo($"Added LATE fallback Roletopia marker through {type.Name}.{member.Name}.");
+            return true;
         }
 
         _log?.LogWarning("Could not find a live writable main-menu text component. Roletopia remains loaded; only the visual marker was skipped.");
+        return false;
     }
 
     private static bool TryMarkLiveTextComponents(object button, string marker)
