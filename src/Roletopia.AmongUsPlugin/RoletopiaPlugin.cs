@@ -31,13 +31,14 @@ public sealed class RoletopiaPlugin : BasePlugin
 
             RoletopiaGameBridge.Initialize(lifecycle, coordinator, adapter, Log);
             MainMenuMarkerPatch.Initialize(Log);
+            HostRoleSidebarPatch.Initialize(Log);
 
             _harmony = new Harmony(PluginGuid);
             var installed = DynamicPatchInstaller.Install(_harmony, Log);
             _harmony.PatchAll(typeof(MainMenuMarkerPatch).Assembly);
             lifecycle.OnPluginLoaded();
 
-            Log.LogInfo($"Roletopia loaded. Installed {installed} Among Us lifecycle hooks plus visual patches.");
+            Log.LogInfo($"Roletopia loaded. Installed {installed} Among Us lifecycle hooks plus visual patches and host role sidebar.");
         }
         catch (Exception exception)
         {
