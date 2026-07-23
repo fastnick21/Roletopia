@@ -14,6 +14,8 @@ internal static class RoletopiaGameBridge
     private static int _mainMenuLateUpdateFrames;
     private static bool _lateMenuMarkerApplied;
 
+    internal static RuntimeCoordinator? Coordinator => _coordinator;
+
     public static void Initialize(
         AmongUsLifecycleController lifecycle,
         RuntimeCoordinator coordinator,
@@ -114,9 +116,6 @@ internal static class RoletopiaGameBridge
         var flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
         var type = instance.GetType();
 
-        // v17.4 exposes real menu buttons (newsButton, settingsButton, etc.) on
-        // MainMenuManager. Prefer their live TextMeshPro components. This avoids
-        // accidentally writing to a wrapper/localization field that never renders.
         foreach (var memberName in new[] { "newsButton", "settingsButton", "howToPlayButton", "playButton", "creditsButton" })
         {
             var member = type.GetField(memberName, flags) as MemberInfo ?? type.GetProperty(memberName, flags);
@@ -132,9 +131,6 @@ internal static class RoletopiaGameBridge
             }
         }
 
-        // Keep the older reflection fallback for versions where the button layout differs.
-        // Running this from LateUpdate is important: MainMenuManager.RunStartUp/localization
-        // can overwrite labels that were changed in Start().
         var preferredNames = new[]
         {
             "version", "build", "creditsButton", "newsButton", "settingsButton",
@@ -196,7 +192,6 @@ internal static class RoletopiaGameBridge
             }
             catch
             {
-                // Some IL2CPP proxy assemblies contain unloadable metadata. Skip them.
             }
         }
 
@@ -248,7 +243,6 @@ internal static class RoletopiaGameBridge
             }
             catch
             {
-                // Try the next text component on the button.
             }
         }
 
@@ -299,7 +293,6 @@ internal static class RoletopiaGameBridge
             }
             catch
             {
-                // Continue into child members when this wrapper's text property is unusable.
             }
         }
 
