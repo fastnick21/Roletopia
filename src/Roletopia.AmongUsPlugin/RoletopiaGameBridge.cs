@@ -83,50 +83,110 @@ internal static class RoletopiaGameBridge
         var flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
         var type = instance.GetType();
 
-        foreach (var member in type.GetFields(flags).Cast<MemberInfo>().Concat(type.GetProperties(flags)))
+        // Prefer a version/build label when one exists. Among Us v17.4 does not expose
+        // one directly on MainMenuManager, so visible menu buttons are safe fallbacks.
+        var preferredNames = new[]
         {
-            object? value;
-            try
-            {
-                value = member switch
-                {
-                    FieldInfo field => field.GetValue(instance),
-                    PropertyInfo property when property.GetIndexParameters().Length == 0 && property.CanRead => property.GetValue(instance),
-                    _ => null
-                };
-            }
-            catch
-            {
-                continue;
-            }
+            "version", "build", "creditsButton", "newsButton", "settingsButton",
+            "howToPlayButton", "playButton"
+        };
 
+        var members = type.GetFields(flags).Cast<MemberInfo>()
+            .Concat(type.GetProperties(flags))
+            .Where(member => preferredNames.Any(name =>
+                member.Name.Contains(name, StringComparison.OrdinalIgnoreCase)))
+            .OrderBy(member => Array.FindIndex(preferredNames, name =>
+                member.Name.Contains(name, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+
+        foreach (var member in members)
+        {
+            var value = ReadMember(instance, member);
             if (value == null) continue;
-            var valueType = value.GetType();
-            var textProperty = valueType.GetProperty("text", flags) ?? valueType.GetProperty("Text", flags);
-            if (textProperty?.CanRead != true || textProperty.CanWrite != true || textProperty.PropertyType != typeof(string)) continue;
 
-            var memberName = member.Name;
-            if (!memberName.Contains("version", StringComparison.OrdinalIgnoreCase) &&
-                !memberName.Contains("build", StringComparison.OrdinalIgnoreCase)) continue;
+            var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
+            if (!TrySetTextRecursive(value, marker, flags, visited, 0)) continue;
 
+            _log?.LogInfo($"Added visible Roletopia marker through {type.Name}.{member.Name}.");
+            return;
+        }
+
+        _log?.LogWarning("Could not find a writable main-menu text target. Roletopia remains loaded; only the visual marker was skipped.");
+    }
+
+    private static object? ReadMember(object owner, MemberInfo member)
+    {
+        try
+        {
+            return member switch
+            {
+                FieldInfo field => field.GetValue(owner),
+                PropertyInfo property when property.GetIndexParameters().Length == 0 && property.CanRead => property.GetValue(owner),
+                _ => null
+            };
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static bool TrySetTextRecursive(
+        object value,
+        string marker,
+        BindingFlags flags,
+        HashSet<object> visited,
+        int depth)
+    {
+        if (depth > 3 || value is string || !visited.Add(value)) return false;
+
+        var valueType = value.GetType();
+        var textProperty = valueType.GetProperty("text", flags) ?? valueType.GetProperty("Text", flags);
+        if (textProperty?.CanRead == true && textProperty.CanWrite && textProperty.PropertyType == typeof(string))
+        {
             try
             {
                 var current = textProperty.GetValue(value) as string ?? string.Empty;
                 if (!current.Contains("Roletopia", StringComparison.OrdinalIgnoreCase))
                 {
-                    textProperty.SetValue(value, current + "\n" + marker);
-                    _log?.LogInfo($"Added Roletopia marker through {type.Name}.{memberName}.");
+                    var replacement = string.IsNullOrWhiteSpace(current)
+                        ? marker
+                        : current + "\n<size=55%>" + marker + "</size>";
+                    textProperty.SetValue(value, replacement);
                 }
-                return;
+                return true;
             }
-            catch (Exception exception)
+            catch
             {
-                _log?.LogWarning($"Could not update menu text member {memberName}: {exception.Message}");
+                // Continue into child members when this wrapper's text property is unusable.
             }
         }
 
-        var memberNames = string.Join(", ", type.GetMembers(flags).Select(member => member.Name).Distinct().OrderBy(name => name));
-        _log?.LogWarning($"Main-menu marker target not found on {type.FullName}. Available members: {memberNames}");
+        var childMembers = valueType.GetFields(flags).Cast<MemberInfo>()
+            .Concat(valueType.GetProperties(flags))
+            .Where(member =>
+                member.Name.Contains("text", StringComparison.OrdinalIgnoreCase) ||
+                member.Name.Contains("label", StringComparison.OrdinalIgnoreCase) ||
+                member.Name.Contains("title", StringComparison.OrdinalIgnoreCase) ||
+                member.Name.Contains("button", StringComparison.OrdinalIgnoreCase) ||
+                member.Name.Contains("graphic", StringComparison.OrdinalIgnoreCase))
+            .Take(20);
+
+        foreach (var childMember in childMembers)
+        {
+            var child = ReadMember(value, childMember);
+            if (child != null && TrySetTextRecursive(child, marker, flags, visited, depth + 1))
+                return true;
+        }
+
+        return false;
+    }
+
+    private sealed class ReferenceEqualityComparer : IEqualityComparer<object>
+    {
+        public static readonly ReferenceEqualityComparer Instance = new();
+        public new bool Equals(object? x, object? y) => ReferenceEquals(x, y);
+        public int GetHashCode(object obj) => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(obj);
     }
 
     private static void SafeInvoke(string eventName, Func<bool?> callback)
