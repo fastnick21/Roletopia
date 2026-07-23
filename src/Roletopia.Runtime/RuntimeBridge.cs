@@ -28,7 +28,12 @@ namespace Roletopia.Runtime
         {
             _roles = Enum.GetValues(typeof(RoleType))
                 .Cast<RoleType>()
-                .ToDictionary(role => role, role => new RoleOption(role, true, 1));
+                .ToDictionary(role => role, role => new RoleOption(role, false, 0));
+
+            // First playable milestone: Sheriff only by default. This keeps early tests
+            // deterministic and avoids assigning unfinished roles while we wire the HUD.
+            _roles[RoleType.Sheriff].Enabled = true;
+            _roles[RoleType.Sheriff].Count = 1;
         }
 
         public bool RoletopiaEnabled { get; set; } = true;
@@ -117,7 +122,7 @@ namespace Roletopia.Runtime
 
             _adapter.SetRoletopiaHudVisible(Settings.RoletopiaEnabled);
             _adapter.ShowHostMessage(Settings.RoletopiaEnabled
-                ? "Roletopia is active. Roles will be assigned when the game starts."
+                ? "Roletopia is active. Sheriff will be assigned when the game starts."
                 : "Roletopia is disabled for this lobby.");
             _adapter.BroadcastSettings(Settings);
             return true;
@@ -131,9 +136,6 @@ namespace Roletopia.Runtime
             var configuredPool = Settings.BuildRolePool();
             if (players.Length == 0 || configuredPool.Count == 0) return false;
 
-            // The original alpha rejected every lobby with fewer players than the
-            // eleven default role slots. Select only as many configured roles as
-            // there are connected players so normal-size test lobbies can start.
             var rolePool = configuredPool.Take(players.Length).ToArray();
             var assignments = _assignments.Assign(_engine, rolePool, Settings.RandomSeed);
             foreach (var assignment in assignments)
