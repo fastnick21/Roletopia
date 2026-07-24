@@ -55,7 +55,7 @@ namespace Roletopia.RoleSystem
 
     public sealed class AbilityResult
     {
-        public AbilityResult(AbilityResultCode code, string message, string? eliminatedPlayerId = null)
+        public AbilityResult(AbilityResultCode code, string message, string eliminatedPlayerId = null)
         {
             Code = code;
             Message = message ?? string.Empty;
@@ -63,7 +63,7 @@ namespace Roletopia.RoleSystem
         }
         public AbilityResultCode Code { get; }
         public string Message { get; }
-        public string? EliminatedPlayerId { get; }
+        public string EliminatedPlayerId { get; }
         public bool Succeeded => Code == AbilityResultCode.Success;
     }
 
@@ -185,7 +185,7 @@ namespace Roletopia.RoleSystem
 
         public RoleRegistry() { RegisterBuiltInRoles(); }
         public IEnumerable<IRoleBehavior> AllRoles => _roles.Values;
-        public IRoleBehavior? Get(RoleType roleType) => _roles.TryGetValue(roleType, out var behavior) ? behavior : null;
+        public IRoleBehavior Get(RoleType roleType) => _roles.TryGetValue(roleType, out var behavior) ? behavior : null;
         public void Register(IRoleBehavior behavior)
         {
             if (behavior == null) throw new ArgumentNullException(nameof(behavior));
