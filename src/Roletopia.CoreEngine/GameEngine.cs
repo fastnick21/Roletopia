@@ -29,6 +29,7 @@ namespace Roletopia.CoreEngine
             Team = team;
         }
 
+        public void SetTeam(TeamType team) => Team = team;
         public void Eliminate() => IsAlive = false;
         public void Revive() { if (IsConnected) IsAlive = true; }
         public void Disconnect() { IsConnected = false; IsAlive = false; }
@@ -110,6 +111,13 @@ namespace Roletopia.CoreEngine
         {
             if (State.Phase != GamePhase.Lobby || !TryGetPlayer(playerId, out var player)) return false;
             player.AssignRole(roleId, team);
+            return true;
+        }
+
+        public bool UpdatePlayerTeam(string playerId, TeamType team)
+        {
+            if (State.Phase == GamePhase.Finished || !TryGetPlayer(playerId, out var player) || !player.IsConnected) return false;
+            player.SetTeam(team);
             return true;
         }
 
