@@ -15,8 +15,8 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '8.0.x'
       - name: Build portable libraries
@@ -35,8 +35,8 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '8.0.x'
       - name: Build complete launcher package
@@ -48,7 +48,7 @@ jobs:
           $zip = "artifacts/Roletopia-Launcher-Windows.zip"
           if (!(Test-Path $zip)) { throw "Complete launcher ZIP was not produced." }
           if ((Get-Item $zip).Length -lt 1MB) { throw "Launcher ZIP is unexpectedly small." }
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: Roletopia-Launcher-Windows
           path: artifacts/Roletopia-Launcher-Windows.zip
