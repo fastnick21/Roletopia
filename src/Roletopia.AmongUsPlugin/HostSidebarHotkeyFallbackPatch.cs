@@ -26,7 +26,7 @@ internal static class HostSidebarHotkeyFallbackPatch
     private static object? _targetText;
     private static string? _originalText;
     private static int _frame;
-    private static int _selectedRole;
+    private const int SelectedRole = 0;
 
     private static MethodBase? TargetMethod() =>
         AccessTools.Method(AccessTools.TypeByName("GameStartManager"), "Update");
@@ -70,7 +70,7 @@ internal static class HostSidebarHotkeyFallbackPatch
         // Keep this very cheap: only refresh a few times per second.
         if (_frame % 20 != 1) return;
 
-        var role = Roles[Math.Clamp(_selectedRole, 0, Roles.Length - 1)];
+        var role = Roles[Math.Clamp(SelectedRole, 0, Roles.Length - 1)];
         var panel = coordinator.BuildHostSidebarText(role, 0);
         WriteText(_targetText, panel + "\n\n[F7] Close emergency panel");
     }
