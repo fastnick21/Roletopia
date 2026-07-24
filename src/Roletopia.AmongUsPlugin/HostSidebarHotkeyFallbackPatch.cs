@@ -6,10 +6,10 @@ using Roletopia.RoleSystem;
 namespace Roletopia.AmongUsPlugin;
 
 /// <summary>
-/// Emergency/diagnostic host sidebar fallback. Press F7 in a hosted lobby to
-/// toggle a Roletopia settings panel using an already-rendered TMP label.
-/// This avoids cloning/creating Unity UI and gives us a reliable visible path
-/// while the full sidebar creation code is being hardened.
+/// Reliable host sidebar fallback. It automatically shows in a hosted lobby by
+/// reusing an already-rendered TMP label. F7 can still hide/show the panel.
+/// The patch listens to both GameStartManager and HudManager so it keeps working
+/// when an Among Us update changes which lobby Update path is active.
 /// </summary>
 [HarmonyPatch]
 internal static class HostSidebarHotkeyFallbackPatch
@@ -22,14 +22,25 @@ internal static class HostSidebarHotkeyFallbackPatch
     private static object? _f7Key;
     private static bool _inputReady;
 
-    private static bool _visible;
+    // Start visible so hosts get a working settings panel without having to know
+    // about the emergency hotkey. F7 remains available as a manual toggle.
+    private static bool _visible = true;
     private static object? _targetText;
     private static string? _originalText;
     private static int _frame;
     private const int SelectedRole = 0;
 
-    private static MethodBase? TargetMethod() =>
-        AccessTools.Method(AccessTools.TypeByName("GameStartManager"), "Update");
+    private static IEnumerable<MethodBase> TargetMethods()
+    {
+        var seen = new HashSet<MethodBase>();
+        foreach (var typeName in new[] { "GameStartManager", "HudManager" })
+        {
+            var type = AccessTools.TypeByName(typeName);
+            var update = type == null ? null : AccessTools.Method(type, "Update");
+            if (update != null && seen.Add(update))
+                yield return update;
+        }
+    }
 
     private static void Postfix(object __instance)
     {
@@ -38,7 +49,7 @@ internal static class HostSidebarHotkeyFallbackPatch
         var coordinator = RoletopiaGameBridge.Coordinator;
         if (coordinator == null || !coordinator.IsHost)
         {
-            HideAndRestore();
+            HideAndRestore(resetVisibility: true);
             return;
         }
 
@@ -48,7 +59,7 @@ internal static class HostSidebarHotkeyFallbackPatch
             _visible = !_visible;
             if (!_visible)
             {
-                HideAndRestore();
+                HideAndRestore(resetVisibility: false);
                 return;
             }
 
@@ -67,12 +78,12 @@ internal static class HostSidebarHotkeyFallbackPatch
             _originalText = ReadText(_targetText);
         }
 
-        // Keep this very cheap: only refresh a few times per second.
+        // Keep this cheap: only refresh a few times per second.
         if (_frame % 20 != 1) return;
 
         var role = Roles[Math.Clamp(SelectedRole, 0, Roles.Length - 1)];
         var panel = coordinator.BuildHostSidebarText(role, 0);
-        WriteText(_targetText, panel + "\n\n[F7] Close emergency panel");
+        WriteText(_targetText, panel + "\n\n[F7] Hide / show Roletopia panel");
     }
 
     private static void EnsureInput()
@@ -183,14 +194,14 @@ internal static class HostSidebarHotkeyFallbackPatch
         catch { }
     }
 
-    private static void HideAndRestore()
+    private static void HideAndRestore(bool resetVisibility)
     {
         if (_targetText != null && _originalText != null)
             WriteText(_targetText, _originalText);
 
         _targetText = null;
         _originalText = null;
-        _visible = false;
+        if (resetVisibility) _visible = true;
         _frame = 0;
     }
 }
