@@ -2,6 +2,7 @@ using System.Collections;
 using System.Reflection;
 using BepInEx.Logging;
 using HarmonyLib;
+using Roletopia.CoreEngine;
 using Roletopia.RoleSystem;
 using Roletopia.Runtime;
 
@@ -44,6 +45,29 @@ internal sealed class ReflectionAmongUsAdapter : IAmongUsRuntimeAdapter
         }
     }
 
+    public TeamType GetPlayerTeam(string playerId)
+    {
+        var player = FindPlayer(playerId);
+        if (player == null) return TeamType.Crewmate;
+
+        try
+        {
+            var data = ReadMember(player, "Data");
+            var role = ReadMember(data, "Role");
+            var isImpostor = ReadBool(role, "IsImpostor")
+                ?? ReadBool(role, "isImpostor")
+                ?? ReadBool(data, "IsImpostor")
+                ?? ReadBool(data, "isImpostor")
+                ?? false;
+            return isImpostor ? TeamType.Impostor : TeamType.Crewmate;
+        }
+        catch (Exception exception)
+        {
+            _log.LogDebug($"Could not resolve base team for player {playerId}: {exception.Message}");
+            return TeamType.Crewmate;
+        }
+    }
+
     public void ShowHostMessage(string message)
     {
         _log.LogMessage(message);
@@ -72,6 +96,27 @@ internal sealed class ReflectionAmongUsAdapter : IAmongUsRuntimeAdapter
 
     public void BroadcastSettings(HostModSettings settings) =>
         _log.LogDebug($"Broadcast settings requested. Enabled={settings.RoletopiaEnabled}, role slots={settings.BuildRolePool().Count}.");
+
+    private object? FindPlayer(string playerId)
+    {
+        try
+        {
+            var playerControlType = AccessTools.TypeByName("PlayerControl");
+            var allPlayerControls = playerControlType == null ? null : AccessTools.Property(playerControlType, "AllPlayerControls")?.GetValue(null);
+            if (allPlayerControls is not IEnumerable players) return null;
+
+            foreach (var player in players)
+            {
+                if (string.Equals(ReadPlayerId(player), playerId, StringComparison.Ordinal)) return player;
+            }
+        }
+        catch (Exception exception)
+        {
+            _log.LogDebug($"Could not locate PlayerControl {playerId}: {exception.Message}");
+        }
+
+        return null;
+    }
 
     private void TryMarkSheriffPlayer(string playerId)
     {
