@@ -22,14 +22,23 @@ internal static class SheriffButtonRuntime
 
         var localPlayer = GetSingleton("PlayerControl");
         var localId = ReadPlayerId(localPlayer);
-        var isSheriff = localPlayer != null && localId != null && IsAssignedSheriff(localId);
+        var coordinator = RoletopiaGameBridge.Coordinator;
+        var isSheriff = localPlayer != null && localId != null && coordinator?.IsRoleAssigned(localId, RoleType.Sheriff) == true;
 
         var killButton = ReadMember(hudManager, "KillButton") ?? ReadMember(hudManager, "killButton");
         if (killButton == null) return;
 
-        if (!isSheriff || IsPlayerDead(localPlayer))
+        if (!isSheriff)
         {
             _currentTarget = null;
+            _labelApplied = false;
+            return;
+        }
+
+        if (IsPlayerDead(localPlayer) || coordinator?.CanUseRoleAbilities != true)
+        {
+            _currentTarget = null;
+            SetGameObjectActive(killButton, false);
             return;
         }
 
@@ -45,20 +54,16 @@ internal static class SheriffButtonRuntime
     {
         var localPlayer = GetSingleton("PlayerControl");
         var actorId = ReadPlayerId(localPlayer);
-        if (localPlayer == null || actorId == null || !IsAssignedSheriff(actorId))
+        var coordinator = RoletopiaGameBridge.Coordinator;
+        if (localPlayer == null || actorId == null || coordinator?.IsRoleAssigned(actorId, RoleType.Sheriff) != true)
             return false;
 
-        // This is the Sheriff's button, so consume the vanilla click even when
-        // there is no target. That prevents a crewmate Sheriff from accidentally
-        // entering vanilla impostor kill code.
-        if (_currentTarget == null || IsPlayerDead(_currentTarget))
+        // A Sheriff's kill-button click must never fall through into vanilla kill logic.
+        if (!coordinator.CanUseRoleAbilities || _currentTarget == null || IsPlayerDead(_currentTarget) || IsPlayerDisconnected(_currentTarget))
             return true;
 
         var targetId = ReadPlayerId(_currentTarget);
         if (targetId == null) return true;
-
-        var coordinator = RoletopiaGameBridge.Coordinator;
-        if (coordinator == null) return true;
 
         var result = coordinator.UseRoleAbility(actorId, targetId, DateTimeOffset.UtcNow);
         if (!result.Succeeded || string.IsNullOrWhiteSpace(result.EliminatedPlayerId))
@@ -75,21 +80,16 @@ internal static class SheriffButtonRuntime
         return true;
     }
 
-    private static bool IsAssignedSheriff(string playerId)
+    internal static void NotifyMurderObserved(object? victim)
     {
         try
         {
-            var adapterField = typeof(RoletopiaGameBridge).GetField("_adapter", BindingFlags.Static | BindingFlags.NonPublic);
-            var adapter = adapterField?.GetValue(null);
-            if (adapter == null) return false;
-
-            var rolesField = adapter.GetType().GetField("_assignedRoles", BindingFlags.Instance | BindingFlags.NonPublic);
-            if (rolesField?.GetValue(adapter) is not IDictionary roles) return false;
-            return roles.Contains(playerId) && roles[playerId] is RoleType role && role == RoleType.Sheriff;
+            var victimId = ReadPlayerId(victim);
+            if (string.IsNullOrWhiteSpace(victimId)) return;
+            RoletopiaGameBridge.Coordinator?.NotifyPlayerEliminated(victimId);
         }
         catch
         {
-            return false;
         }
     }
 
@@ -105,7 +105,7 @@ internal static class SheriffButtonRuntime
         var bestDistanceSquared = MaxTargetDistance * MaxTargetDistance;
         foreach (var player in players)
         {
-            if (player == null || ReferenceEquals(player, localPlayer) || IsPlayerDead(player)) continue;
+            if (player == null || ReferenceEquals(player, localPlayer) || IsPlayerDead(player) || IsPlayerDisconnected(player)) continue;
             if (!TryGetPosition(player, out var x, out var y)) continue;
 
             var dx = x - localX;
@@ -125,6 +125,13 @@ internal static class SheriffButtonRuntime
         if (player == null) return true;
         var data = ReadMember(player, "Data");
         return ReadBool(data, "IsDead") ?? ReadBool(data, "isDead") ?? false;
+    }
+
+    private static bool IsPlayerDisconnected(object? player)
+    {
+        if (player == null) return true;
+        var data = ReadMember(player, "Data");
+        return ReadBool(data, "Disconnected") ?? ReadBool(data, "disconnected") ?? false;
     }
 
     private static bool TryGetPosition(object player, out float x, out float y)
@@ -217,9 +224,8 @@ internal static class SheriffButtonRuntime
 
     private static bool TryApplyMurder(object killer, object victim)
     {
-        // Prefer the RPC path so every client sees the same death. Fall back to
-        // the local MurderPlayer/Die methods for compatibility with game builds
-        // whose generated IL2CPP signatures differ.
+        // Prefer the RPC path so every client observes the same murder. The MurderPlayer
+        // postfix below then mirrors that death into each client's Roletopia engine.
         if (TryInvokePlayerAction(killer, "RpcMurderPlayer", victim)) return true;
         if (TryInvokePlayerAction(killer, "MurderPlayer", victim)) return true;
         return TryInvokeVictimDeath(victim);
@@ -389,13 +395,28 @@ internal static class SheriffKillButtonClickPatch
     {
         try
         {
-            // Return false only when the click belonged to a Sheriff; otherwise
-            // preserve the normal Among Us kill-button behavior unchanged.
             return !SheriffButtonRuntime.TryHandleClick(__instance);
         }
         catch
         {
             return true;
         }
+    }
+}
+
+[HarmonyPatch]
+internal static class SheriffMurderObservedPatch
+{
+    private static MethodBase? TargetMethod()
+    {
+        var type = AccessTools.TypeByName("PlayerControl");
+        if (type == null) return null;
+        return type.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+            .FirstOrDefault(method => method.Name == "MurderPlayer" && method.GetParameters().Length > 0);
+    }
+
+    private static void Postfix(object __0)
+    {
+        SheriffButtonRuntime.NotifyMurderObserved(__0);
     }
 }
