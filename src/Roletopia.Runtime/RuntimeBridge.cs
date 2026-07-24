@@ -144,6 +144,15 @@ namespace Roletopia.Runtime
             if (!_engine.TryGetPlayer(actorId, out var actor) || !Enum.TryParse<RoleType>(actor.RoleId, out var role))
                 return new AbilityResult(AbilityResultCode.InvalidActor, "The player does not have a Roletopia role.");
 
+            // Vanilla role assignment can happen after the lobby callback. Refresh every
+            // other player's live base team immediately before a role ability resolves so
+            // Sheriff shots and the crewmate win check use the actual Among Us impostors.
+            foreach (var player in _engine.Players)
+            {
+                if (player.Id == actorId || !player.IsConnected) continue;
+                _engine.UpdatePlayerTeam(player.Id, _adapter.GetPlayerTeam(player.Id));
+            }
+
             var behavior = _assignments.Registry.Get(role);
             if (behavior == null)
                 return new AbilityResult(AbilityResultCode.NotSupported, "The role behavior is not registered.");
@@ -251,16 +260,11 @@ namespace Roletopia.Runtime
         {
             if (!_adapter.IsHost) return false;
 
-            foreach (var playerId in _adapter.ConnectedPlayerIds)
-            {
-                if (!_engine.AddPlayer(playerId)) continue;
-                var baseTeam = _adapter.GetPlayerTeam(playerId);
-                _engine.AssignRole(playerId, baseTeam == TeamType.Impostor ? "Impostor" : "Crewmate", baseTeam);
-            }
+            SyncLobbyPlayersAndTeams();
 
             _adapter.SetRoletopiaHudVisible(Settings.RoletopiaEnabled);
             _adapter.ShowHostMessage(Settings.RoletopiaEnabled
-                ? "Roletopia is active. Host role settings are available in the lobby sidebar."
+                ? "Roletopia is active. Sheriff is enabled while role gameplay is under construction."
                 : "Roletopia is disabled for this lobby.");
             _adapter.BroadcastSettings(Settings);
             return true;
@@ -269,6 +273,10 @@ namespace Roletopia.Runtime
         public bool AssignConfiguredRoles()
         {
             if (!_adapter.IsHost || !Settings.RoletopiaEnabled) return false;
+
+            // Players can join after AmongUsClient.OnGameJoined. Pull the final lobby list
+            // at the exact moment roles are assigned instead of relying on the earlier snapshot.
+            SyncLobbyPlayersAndTeams();
 
             var players = _adapter.ConnectedPlayerIds.ToArray();
             var configuredPool = Settings.BuildRolePool().ToList();
@@ -290,6 +298,21 @@ namespace Roletopia.Runtime
                 _adapter.ShowHostMessage($"Roletopia assigned {assignments.Count} role(s).");
 
             return assignments.Count > 0;
+        }
+
+        private void SyncLobbyPlayersAndTeams()
+        {
+            foreach (var playerId in _adapter.ConnectedPlayerIds)
+            {
+                if (!_engine.TryGetPlayer(playerId, out _))
+                    _engine.AddPlayer(playerId);
+
+                var baseTeam = _adapter.GetPlayerTeam(playerId);
+                if (_engine.State.Phase == GamePhase.Lobby)
+                    _engine.AssignRole(playerId, baseTeam == TeamType.Impostor ? "Impostor" : "Crewmate", baseTeam);
+                else
+                    _engine.UpdatePlayerTeam(playerId, baseTeam);
+            }
         }
     }
 }
