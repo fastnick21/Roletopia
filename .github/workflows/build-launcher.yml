@@ -34,10 +34,10 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "8.0.x"
 
@@ -46,7 +46,7 @@ jobs:
         run: ./scripts/build-launcher.ps1
 
       - name: Upload launcher package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: Roletopia-Launcher-Windows
           path: artifacts/Roletopia-Launcher-Windows.zip
