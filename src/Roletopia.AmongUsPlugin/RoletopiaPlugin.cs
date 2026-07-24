@@ -29,6 +29,8 @@ public sealed class RoletopiaPlugin : BasePlugin
             var coordinator = new RuntimeCoordinator(engine, new RoleAssignmentService(registry), adapter);
             var lifecycle = new AmongUsLifecycleController(engine, coordinator, new BepInExRuntimeLogger(Log));
 
+            engine.GameWon += coordinator.ApplyWinResult;
+
             RoletopiaGameBridge.Initialize(lifecycle, coordinator, adapter, Log);
             MainMenuMarkerPatch.Initialize(Log);
             HostRoleSidebarPatch.Initialize(Log);
