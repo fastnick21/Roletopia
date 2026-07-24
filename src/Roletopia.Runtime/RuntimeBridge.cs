@@ -61,7 +61,7 @@ namespace Roletopia.Runtime
         {
             _roles = Enum.GetValues(typeof(RoleType))
                 .Cast<RoleType>()
-                .ToDictionary(role => role, role => new RoleOption(role, true, 1));
+                .ToDictionary(role => role, role => new RoleOption(role, role == RoleType.Sheriff, role == RoleType.Sheriff ? 1 : 0));
 
             Configure(RoleType.Sheriff, ("cooldown", "Kill Cooldown", 30d, 5d, 90d, 5d), ("misfire", "Misfire Kills Sheriff", 1d, 0d, 1d, 1d));
             Configure(RoleType.Medium, ("cooldown", "Seance Cooldown", 20d, 5d, 90d, 5d), ("duration", "Seance Duration", 8d, 2d, 30d, 1d));
