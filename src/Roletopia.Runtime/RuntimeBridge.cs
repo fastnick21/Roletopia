@@ -50,7 +50,7 @@ namespace Roletopia.Runtime
             return this;
         }
 
-        public RoleSetting? GetSetting(string key) => _settings.FirstOrDefault(s => s.Key.Equals(key, StringComparison.OrdinalIgnoreCase));
+        public RoleSetting GetSetting(string key) => _settings.FirstOrDefault(s => s.Key.Equals(key, StringComparison.OrdinalIgnoreCase));
     }
 
     public sealed class HostModSettings
