@@ -118,7 +118,7 @@ var runtimeShot = coordinator.UseRoleAbility("host", "guest", now);
 Check(runtimeShot.Succeeded && runtimeShot.EliminatedPlayerId == "guest", "runtime executes configured sheriff shot");
 Check(runtimeEngine.State.Phase == GamePhase.Finished, "runtime sheriff shot triggers crew win");
 coordinator.ApplyWinResult(runtimeEngine.EvaluateWin());
-Check(adapter.WinApplyCount == 0, "finished engine does not synthesize duplicate win result");
+Check(adapter.WinApplyCount == 1, "host adapter accepts Sheriff win result");
 Check(coordinator.ApplyHostToggle(false), "host can disable Roletopia");
 Check(!coordinator.Settings.RoletopiaEnabled, "disabled setting stored");
 Check(adapter.HudCleared && !adapter.HudVisible, "disabled mode clears custom HUD");
