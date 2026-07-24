@@ -50,7 +50,7 @@ namespace Roletopia.Runtime
             return this;
         }
 
-        public RoleSetting GetSetting(string key) => _settings.FirstOrDefault(s => s.Key.Equals(key, StringComparison.OrdinalIgnoreCase));
+        public RoleSetting? GetSetting(string key) => _settings.FirstOrDefault(s => s.Key.Equals(key, StringComparison.OrdinalIgnoreCase));
     }
 
     public sealed class HostModSettings
@@ -115,6 +115,7 @@ namespace Roletopia.Runtime
     {
         bool IsHost { get; }
         IReadOnlyCollection<string> ConnectedPlayerIds { get; }
+        TeamType GetPlayerTeam(string playerId);
         void ShowHostMessage(string message);
         void AssignRole(string playerId, RoleType role);
         void ClearRoletopiaHud();
@@ -137,6 +138,27 @@ namespace Roletopia.Runtime
 
         public HostModSettings Settings { get; } = new HostModSettings();
         public bool IsHost => _adapter.IsHost;
+
+        public AbilityResult UseRoleAbility(string actorId, string targetId, DateTimeOffset now)
+        {
+            if (!_engine.TryGetPlayer(actorId, out var actor) || !Enum.TryParse<RoleType>(actor.RoleId, out var role))
+                return new AbilityResult(AbilityResultCode.InvalidActor, "The player does not have a Roletopia role.");
+
+            var behavior = _assignments.Registry.Get(role);
+            if (behavior == null)
+                return new AbilityResult(AbilityResultCode.NotSupported, "The role behavior is not registered.");
+
+            var option = Settings.GetRole(role);
+            var cooldown = option.GetSetting("cooldown")?.Value;
+            var misfireKillsSheriff = option.GetSetting("misfire")?.Value >= 0.5;
+            return behavior.UseAbility(new RoleContext(
+                _engine,
+                actorId,
+                targetId,
+                now,
+                cooldown,
+                role != RoleType.Sheriff || misfireKillsSheriff));
+        }
 
         public bool ToggleRole(RoleType role)
         {
@@ -230,7 +252,11 @@ namespace Roletopia.Runtime
             if (!_adapter.IsHost) return false;
 
             foreach (var playerId in _adapter.ConnectedPlayerIds)
-                _engine.AddPlayer(playerId);
+            {
+                if (!_engine.AddPlayer(playerId)) continue;
+                var baseTeam = _adapter.GetPlayerTeam(playerId);
+                _engine.AssignRole(playerId, baseTeam == TeamType.Impostor ? "Impostor" : "Crewmate", baseTeam);
+            }
 
             _adapter.SetRoletopiaHudVisible(Settings.RoletopiaEnabled);
             _adapter.ShowHostMessage(Settings.RoletopiaEnabled
