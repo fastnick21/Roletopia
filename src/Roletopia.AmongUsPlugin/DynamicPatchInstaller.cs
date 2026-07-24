@@ -12,6 +12,10 @@ internal static class DynamicPatchInstaller
     {
         new("AmongUsClient", "OnGameJoined", nameof(RoletopiaGameBridge.LobbyCreated)),
         new("GameStartManager", "BeginGame", nameof(RoletopiaGameBridge.GameStarting)),
+        // GameStartManager.BeginGame is primarily a host-side lobby path. ShipStatus.Start
+        // runs when the game scene loads, so guests also build the same deterministic local
+        // role assignment before their role HUD becomes active.
+        new("ShipStatus", "Start", nameof(RoletopiaGameBridge.GameStarting)),
         new("MeetingHud", "Start", nameof(RoletopiaGameBridge.MeetingStarted)),
         new("MeetingHud", "Close", nameof(RoletopiaGameBridge.MeetingEnded)),
         new("PlayerControl", "CompleteTask", nameof(RoletopiaGameBridge.TaskCompleted)),
