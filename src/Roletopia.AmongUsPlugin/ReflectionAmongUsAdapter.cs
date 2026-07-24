@@ -68,6 +68,9 @@ internal sealed class ReflectionAmongUsAdapter : IAmongUsRuntimeAdapter
         }
     }
 
+    public bool IsRoleAssigned(string playerId, RoleType role) =>
+        _assignedRoles.TryGetValue(playerId, out var assigned) && assigned == role;
+
     public void ShowHostMessage(string message)
     {
         _log.LogMessage(message);
@@ -80,14 +83,18 @@ internal sealed class ReflectionAmongUsAdapter : IAmongUsRuntimeAdapter
         _log.LogInfo($"Assigned {role} to player {playerId}.");
 
         if (role == RoleType.Sheriff)
-        {
             TryMarkSheriffPlayer(playerId);
-        }
+    }
+
+    public void ResetRoleAssignments()
+    {
+        _assignedRoles.Clear();
+        _log.LogDebug("Reset local Roletopia role assignments.");
     }
 
     public void ClearRoletopiaHud()
     {
-        _assignedRoles.Clear();
+        ResetRoleAssignments();
         _log.LogDebug("Cleared Roletopia HUD state.");
     }
 
@@ -96,6 +103,102 @@ internal sealed class ReflectionAmongUsAdapter : IAmongUsRuntimeAdapter
 
     public void BroadcastSettings(HostModSettings settings) =>
         _log.LogDebug($"Broadcast settings requested. Enabled={settings.RoletopiaEnabled}, role slots={settings.BuildRolePool().Count}.");
+
+    public void ApplyWinResult(WinResult result)
+    {
+        if (result == null || !result.HasWinner || !IsHost) return;
+
+        try
+        {
+            var manager = GetSingleton("GameManager") ?? GetSingleton("ShipStatus");
+            if (manager == null)
+            {
+                _log.LogWarning("Could not end the live Among Us match: no GameManager or ShipStatus singleton was found.");
+                return;
+            }
+
+            var methods = manager.GetType().GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+                .Where(method => method.Name is "RpcEndGame" or "EndGame")
+                .OrderBy(method => method.Name == "RpcEndGame" ? 0 : 1)
+                .ToArray();
+
+            foreach (var method in methods)
+            {
+                var args = BuildEndGameArguments(method.GetParameters(), result);
+                if (args == null) continue;
+
+                method.Invoke(manager, args);
+                _log.LogInfo($"Applied Roletopia win to Among Us through {manager.GetType().Name}.{method.Name}: {result.WinningTeam}/{result.Reason}.");
+                return;
+            }
+
+            _log.LogWarning("Could not end the live Among Us match: no compatible end-game method signature was found.");
+        }
+        catch (Exception exception)
+        {
+            _log.LogWarning($"Could not apply Roletopia win to Among Us: {exception.Message}");
+        }
+    }
+
+    private static object?[]? BuildEndGameArguments(ParameterInfo[] parameters, WinResult result)
+    {
+        var args = new object?[parameters.Length];
+        for (var i = 0; i < parameters.Length; i++)
+        {
+            var parameter = parameters[i];
+            var type = parameter.ParameterType;
+
+            if (type.IsEnum)
+            {
+                args[i] = ResolveGameOverReason(type, result);
+                if (args[i] == null) return null;
+                continue;
+            }
+
+            if (type == typeof(bool))
+            {
+                args[i] = false;
+                continue;
+            }
+
+            if (parameter.HasDefaultValue)
+            {
+                args[i] = parameter.DefaultValue;
+                continue;
+            }
+
+            if (!type.IsValueType)
+            {
+                args[i] = null;
+                continue;
+            }
+
+            try { args[i] = Activator.CreateInstance(type); }
+            catch { return null; }
+        }
+
+        return args;
+    }
+
+    private static object? ResolveGameOverReason(Type enumType, WinResult result)
+    {
+        var preferredNames = result.WinningTeam switch
+        {
+            TeamType.Crewmate when result.Reason == WinReason.TasksCompleted => new[] { "HumansByTask", "CrewmatesByTask", "HumansByVote", "CrewmatesByVote" },
+            TeamType.Crewmate => new[] { "HumansByVote", "CrewmatesByVote", "HumansByTask", "CrewmatesByTask" },
+            TeamType.Impostor => new[] { "ImpostorByKill", "ImpostorsByKill", "ImpostorByVote", "ImpostorsByVote" },
+            _ => Array.Empty<string>()
+        };
+
+        foreach (var name in preferredNames)
+        {
+            if (Enum.GetNames(enumType).Any(candidate => candidate.Equals(name, StringComparison.OrdinalIgnoreCase)))
+                return Enum.Parse(enumType, name, ignoreCase: true);
+        }
+
+        var values = Enum.GetValues(enumType);
+        return values.Length > 0 ? values.GetValue(0) : null;
+    }
 
     private object? FindPlayer(string playerId)
     {
@@ -122,7 +225,7 @@ internal sealed class ReflectionAmongUsAdapter : IAmongUsRuntimeAdapter
     {
         try
         {
-            var local = GetSingleton("PlayerControl");
+            var local = GetLocalPlayer();
             var playerControlType = AccessTools.TypeByName("PlayerControl");
             var allPlayerControls = playerControlType == null ? null : AccessTools.Property(playerControlType, "AllPlayerControls")?.GetValue(null);
 
@@ -208,6 +311,16 @@ internal sealed class ReflectionAmongUsAdapter : IAmongUsRuntimeAdapter
     {
         try { return getter(); }
         catch { return null; }
+    }
+
+    private static object? GetLocalPlayer()
+    {
+        var type = AccessTools.TypeByName("PlayerControl");
+        if (type == null) return null;
+
+        return AccessTools.Property(type, "LocalPlayer")?.GetValue(null)
+            ?? AccessTools.Field(type, "LocalPlayer")?.GetValue(null)
+            ?? GetSingleton("PlayerControl");
     }
 
     private static object? GetSingleton(string typeName)
