@@ -30,28 +30,40 @@ namespace Roletopia.RoleSystem
 
     public sealed class RoleContext
     {
-        public RoleContext(GameEngine engine, string actorId, string targetId, DateTimeOffset now)
+        public RoleContext(
+            GameEngine engine,
+            string actorId,
+            string targetId,
+            DateTimeOffset now,
+            double? cooldownSecondsOverride = null,
+            bool sheriffMisfireKillsSelf = true)
         {
             Engine = engine ?? throw new ArgumentNullException(nameof(engine));
             ActorId = actorId;
             TargetId = targetId;
             Now = now;
+            CooldownSecondsOverride = cooldownSecondsOverride;
+            SheriffMisfireKillsSelf = sheriffMisfireKillsSelf;
         }
         public GameEngine Engine { get; }
         public string ActorId { get; }
         public string TargetId { get; }
         public DateTimeOffset Now { get; }
+        public double? CooldownSecondsOverride { get; }
+        public bool SheriffMisfireKillsSelf { get; }
     }
 
     public sealed class AbilityResult
     {
-        public AbilityResult(AbilityResultCode code, string message)
+        public AbilityResult(AbilityResultCode code, string message, string? eliminatedPlayerId = null)
         {
             Code = code;
             Message = message ?? string.Empty;
+            EliminatedPlayerId = eliminatedPlayerId;
         }
         public AbilityResultCode Code { get; }
         public string Message { get; }
+        public string? EliminatedPlayerId { get; }
         public bool Succeeded => Code == AbilityResultCode.Success;
     }
 
@@ -106,11 +118,48 @@ namespace Roletopia.RoleSystem
                 return new AbilityResult(AbilityResultCode.OnCooldown, "The ability is still cooling down.");
 
             var result = Execute(context);
-            if (result.Succeeded) _cooldowns.Start(actor.Id, Definition.RoleType, context.Now, Definition.CooldownSeconds);
+            if (result.Succeeded)
+            {
+                var cooldown = context.CooldownSecondsOverride ?? Definition.CooldownSeconds;
+                _cooldowns.Start(actor.Id, Definition.RoleType, context.Now, cooldown);
+            }
             return result;
         }
 
         protected abstract AbilityResult Execute(RoleContext context);
+    }
+
+    public sealed class SheriffRoleBehavior : RoleBehaviorBase
+    {
+        public SheriffRoleBehavior(AbilityCooldownTracker cooldowns)
+            : base(new RoleDefinition(RoleType.Sheriff, TeamType.Crewmate, 30, true), cooldowns) { }
+
+        protected override AbilityResult Execute(RoleContext context)
+        {
+            if (!context.Engine.TryGetPlayer(context.ActorId, out var sheriff) ||
+                !context.Engine.TryGetPlayer(context.TargetId, out var target))
+            {
+                return new AbilityResult(AbilityResultCode.InvalidTarget, "Sheriff target could not be resolved.");
+            }
+
+            if (target.Team == TeamType.Impostor)
+            {
+                return context.Engine.EliminatePlayer(target.Id)
+                    ? new AbilityResult(AbilityResultCode.Success, "Sheriff eliminated an impostor.", target.Id)
+                    : new AbilityResult(AbilityResultCode.InvalidTarget, "The impostor could not be eliminated.");
+            }
+
+            if (context.SheriffMisfireKillsSelf)
+            {
+                return context.Engine.EliminatePlayer(sheriff.Id)
+                    ? new AbilityResult(AbilityResultCode.Success, "Sheriff misfired and was eliminated.", sheriff.Id)
+                    : new AbilityResult(AbilityResultCode.InvalidActor, "Sheriff misfire could not be applied.");
+            }
+
+            return context.Engine.EliminatePlayer(target.Id)
+                ? new AbilityResult(AbilityResultCode.Success, "Sheriff shot the selected target.", target.Id)
+                : new AbilityResult(AbilityResultCode.InvalidTarget, "The selected target could not be eliminated.");
+        }
     }
 
     public sealed class EliminationRoleBehavior : RoleBehaviorBase
@@ -118,7 +167,7 @@ namespace Roletopia.RoleSystem
         public EliminationRoleBehavior(RoleDefinition definition, AbilityCooldownTracker cooldowns) : base(definition, cooldowns) { }
         protected override AbilityResult Execute(RoleContext context) =>
             context.Engine.EliminatePlayer(context.TargetId)
-                ? new AbilityResult(AbilityResultCode.Success, "Target eliminated.")
+                ? new AbilityResult(AbilityResultCode.Success, "Target eliminated.", context.TargetId)
                 : new AbilityResult(AbilityResultCode.InvalidTarget, "Target could not be eliminated.");
     }
 
@@ -136,7 +185,7 @@ namespace Roletopia.RoleSystem
 
         public RoleRegistry() { RegisterBuiltInRoles(); }
         public IEnumerable<IRoleBehavior> AllRoles => _roles.Values;
-        public IRoleBehavior Get(RoleType roleType) => _roles.TryGetValue(roleType, out var behavior) ? behavior : null;
+        public IRoleBehavior? Get(RoleType roleType) => _roles.TryGetValue(roleType, out var behavior) ? behavior : null;
         public void Register(IRoleBehavior behavior)
         {
             if (behavior == null) throw new ArgumentNullException(nameof(behavior));
@@ -146,7 +195,7 @@ namespace Roletopia.RoleSystem
 
         private void RegisterBuiltInRoles()
         {
-            Register(new EliminationRoleBehavior(new RoleDefinition(RoleType.Sheriff, TeamType.Crewmate, 30, true), _cooldowns));
+            Register(new SheriffRoleBehavior(_cooldowns));
             Register(new UtilityRoleBehavior(new RoleDefinition(RoleType.Medium, TeamType.Crewmate, 20, false), _cooldowns));
             Register(new UtilityRoleBehavior(new RoleDefinition(RoleType.Snitch, TeamType.Crewmate, 0, false), _cooldowns));
             Register(new UtilityRoleBehavior(new RoleDefinition(RoleType.Engineer, TeamType.Crewmate, 25, false), _cooldowns));
@@ -164,6 +213,7 @@ namespace Roletopia.RoleSystem
     {
         private readonly RoleRegistry _registry;
         public RoleAssignmentService(RoleRegistry registry) { _registry = registry ?? throw new ArgumentNullException(nameof(registry)); }
+        public RoleRegistry Registry => _registry;
 
         public IReadOnlyDictionary<string, RoleType> Assign(GameEngine engine, IEnumerable<RoleType> enabledRoles, int seed)
         {
@@ -173,20 +223,29 @@ namespace Roletopia.RoleSystem
             if (roles.Count > players.Count) throw new InvalidOperationException("There are more configured role slots than connected players.");
 
             var random = new Random(seed);
-            for (var i = players.Count - 1; i > 0; i--)
+            var unassigned = players.OrderBy(_ => random.Next()).ToList();
+            var assignments = new Dictionary<string, RoleType>(StringComparer.Ordinal);
+
+            foreach (var role in roles)
             {
-                var j = random.Next(i + 1);
-                var temp = players[i]; players[i] = players[j]; players[j] = temp;
+                var behavior = _registry.Get(role) ?? throw new InvalidOperationException("Role is not registered: " + role);
+                var candidatePool = unassigned.Where(player => IsEligibleBaseTeam(player.Team, behavior.Definition.Team)).ToList();
+                if (candidatePool.Count == 0)
+                    throw new InvalidOperationException($"No eligible player is available for {role} ({behavior.Definition.Team}).");
+
+                var selected = candidatePool[random.Next(candidatePool.Count)];
+                engine.AssignRole(selected.Id, role.ToString(), behavior.Definition.Team);
+                assignments[selected.Id] = role;
+                unassigned.Remove(selected);
             }
 
-            var assignments = new Dictionary<string, RoleType>(StringComparer.Ordinal);
-            for (var i = 0; i < roles.Count; i++)
-            {
-                var behavior = _registry.Get(roles[i]) ?? throw new InvalidOperationException("Role is not registered: " + roles[i]);
-                engine.AssignRole(players[i].Id, roles[i].ToString(), behavior.Definition.Team);
-                assignments[players[i].Id] = roles[i];
-            }
             return assignments;
+        }
+
+        private static bool IsEligibleBaseTeam(TeamType playerTeam, TeamType roleTeam)
+        {
+            if (roleTeam == TeamType.Impostor) return playerTeam == TeamType.Impostor;
+            return playerTeam != TeamType.Impostor;
         }
     }
 }
