@@ -31,8 +31,9 @@ var sheriff = roles.Get(RoleType.Sheriff)!;
 var now = DateTimeOffset.UtcNow;
 var ability = sheriff.UseAbility(new RoleContext(engine, sheriffId, ninjaId, now));
 Check(ability.Succeeded, "sheriff shot succeeds against impostor");
-Check(ability.EliminatedPlayerId == ninjaId, "sheriff reports eliminated impostor");
-Check(!engine.IsPlayerAlive(ninjaId), "sheriff eliminates impostor target");
+Check(ability.EliminatedPlayerId == ninjaId, "sheriff reports intended impostor victim");
+Check(engine.IsPlayerAlive(ninjaId), "sheriff role logic waits for live murder confirmation");
+Check(engine.EliminatePlayer(ninjaId), "confirmed sheriff murder updates engine");
 Check(engine.State.Phase == GamePhase.InProgress, "game continues while another impostor lives");
 var cooldownAttempt = sheriff.UseAbility(new RoleContext(engine, sheriffId, otherImpostorId, now.AddSeconds(1)));
 Check(cooldownAttempt.Code == AbilityResultCode.OnCooldown, "sheriff cooldown enforced");
@@ -48,9 +49,23 @@ var misfireRegistry = new RoleRegistry();
 var misfireResult = misfireRegistry.Get(RoleType.Sheriff)!.UseAbility(
     new RoleContext(misfireEngine, "sheriff", "crew", now, sheriffMisfireKillsSelf: true));
 Check(misfireResult.Succeeded, "sheriff misfire resolves");
-Check(misfireResult.EliminatedPlayerId == "sheriff", "misfire reports sheriff as victim");
-Check(!misfireEngine.IsPlayerAlive("sheriff"), "misfire kills sheriff");
+Check(misfireResult.EliminatedPlayerId == "sheriff", "misfire reports sheriff as intended victim");
+Check(misfireEngine.IsPlayerAlive("sheriff"), "misfire waits for live self-kill confirmation");
 Check(misfireEngine.IsPlayerAlive("crew"), "misfire leaves innocent target alive");
+Check(misfireEngine.EliminatePlayer("sheriff"), "confirmed misfire death updates engine");
+
+var harmlessMisfireEngine = new GameEngine();
+harmlessMisfireEngine.AddPlayer("sheriff");
+harmlessMisfireEngine.AddPlayer("crew");
+harmlessMisfireEngine.AddPlayer("imp");
+harmlessMisfireEngine.AssignRole("sheriff", RoleType.Sheriff.ToString(), TeamType.Crewmate);
+harmlessMisfireEngine.AssignRole("imp", "Impostor", TeamType.Impostor);
+harmlessMisfireEngine.StartGame(0);
+var harmlessMisfire = new RoleRegistry().Get(RoleType.Sheriff)!.UseAbility(
+    new RoleContext(harmlessMisfireEngine, "sheriff", "crew", now, sheriffMisfireKillsSelf: false));
+Check(harmlessMisfire.Succeeded, "disabled self-misfire still consumes Sheriff shot");
+Check(string.IsNullOrWhiteSpace(harmlessMisfire.EliminatedPlayerId), "disabled self-misfire has no victim");
+Check(harmlessMisfireEngine.IsPlayerAlive("sheriff") && harmlessMisfireEngine.IsPlayerAlive("crew"), "disabled self-misfire kills nobody");
 
 var sheriffWinEngine = new GameEngine();
 sheriffWinEngine.AddPlayer("sheriff");
@@ -63,8 +78,10 @@ sheriffWinEngine.StartGame(0);
 var sheriffWinRegistry = new RoleRegistry();
 var winningShot = sheriffWinRegistry.Get(RoleType.Sheriff)!.UseAbility(
     new RoleContext(sheriffWinEngine, "sheriff", "imp", now));
-Check(winningShot.Succeeded, "sheriff winning shot succeeds");
-Check(sheriffWinEngine.State.Phase == GamePhase.Finished, "sheriff shot can finish game");
+Check(winningShot.Succeeded && winningShot.EliminatedPlayerId == "imp", "sheriff winning shot identifies impostor victim");
+Check(sheriffWinEngine.State.Phase == GamePhase.InProgress, "winning shot waits for live murder before ending game");
+Check(sheriffWinEngine.EliminatePlayer("imp"), "confirmed winning sheriff murder updates engine");
+Check(sheriffWinEngine.State.Phase == GamePhase.Finished, "confirmed sheriff murder can finish game");
 Check(sheriffWin?.WinningTeam == TeamType.Crewmate, "sheriff shares crewmate win condition");
 Check(sheriffWin?.Reason == WinReason.ImpostorsEliminated, "sheriff win is impostors eliminated");
 
@@ -115,8 +132,11 @@ Check(adapter.AssignedRoles.TryGetValue("host", out var assignedRole) && assigne
 runtimeEngine.StartGame(0);
 Check(coordinator.CanUseRoleAbilities, "role abilities enabled during gameplay");
 var runtimeShot = coordinator.UseRoleAbility("host", "guest", now);
-Check(runtimeShot.Succeeded && runtimeShot.EliminatedPlayerId == "guest", "runtime executes configured sheriff shot");
-Check(runtimeEngine.State.Phase == GamePhase.Finished, "runtime sheriff shot triggers crew win");
+Check(runtimeShot.Succeeded && runtimeShot.EliminatedPlayerId == "guest", "runtime Sheriff shot selects configured victim");
+Check(runtimeEngine.State.Phase == GamePhase.InProgress, "runtime waits for observed murder before Sheriff win");
+Check(coordinator.NotifyPlayerEliminated("guest"), "observed Sheriff murder updates runtime engine");
+Check(runtimeEngine.State.Phase == GamePhase.Finished, "observed Sheriff murder triggers crew win");
+Check(adapter.WinApplyCount == 0, "smoke adapter only receives wins when subscribed like plugin");
 coordinator.ApplyWinResult(runtimeEngine.EvaluateWin());
 Check(adapter.WinApplyCount == 1, "host adapter accepts Sheriff win result");
 Check(coordinator.ApplyHostToggle(false), "host can disable Roletopia");
