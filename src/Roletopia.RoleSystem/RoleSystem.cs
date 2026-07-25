@@ -142,23 +142,19 @@ namespace Roletopia.RoleSystem
                 return new AbilityResult(AbilityResultCode.InvalidTarget, "Sheriff target could not be resolved.");
             }
 
+            // The role layer decides who should die, but does not mark them dead yet.
+            // Among Us' live murder RPC is authoritative; its observed MurderPlayer hook
+            // mirrors the confirmed death into the Roletopia engine. This prevents a
+            // failed RPC from ending a match while the victim is still alive in-game.
             if (target.Team == TeamType.Impostor)
-            {
-                return context.Engine.EliminatePlayer(target.Id)
-                    ? new AbilityResult(AbilityResultCode.Success, "Sheriff eliminated an impostor.", target.Id)
-                    : new AbilityResult(AbilityResultCode.InvalidTarget, "The impostor could not be eliminated.");
-            }
+                return new AbilityResult(AbilityResultCode.Success, "Sheriff shot an impostor.", target.Id);
 
             if (context.SheriffMisfireKillsSelf)
-            {
-                return context.Engine.EliminatePlayer(sheriff.Id)
-                    ? new AbilityResult(AbilityResultCode.Success, "Sheriff misfired and was eliminated.", sheriff.Id)
-                    : new AbilityResult(AbilityResultCode.InvalidActor, "Sheriff misfire could not be applied.");
-            }
+                return new AbilityResult(AbilityResultCode.Success, "Sheriff misfired.", sheriff.Id);
 
-            return context.Engine.EliminatePlayer(target.Id)
-                ? new AbilityResult(AbilityResultCode.Success, "Sheriff shot the selected target.", target.Id)
-                : new AbilityResult(AbilityResultCode.InvalidTarget, "The selected target could not be eliminated.");
+            // With self-misfire disabled, an innocent shot is harmless but still consumes
+            // the Sheriff's shot/cooldown. It must never kill the innocent target.
+            return new AbilityResult(AbilityResultCode.Success, "Sheriff misfired, but no one was eliminated.");
         }
     }
 
