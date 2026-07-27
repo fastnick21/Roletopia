@@ -88,11 +88,13 @@ Check(sheriffWin?.Reason == WinReason.ImpostorsEliminated, "sheriff win is impos
 var mediumEngine = new GameEngine();
 mediumEngine.AddPlayer("medium");
 mediumEngine.AddPlayer("crewSpirit");
+mediumEngine.AddPlayer("crewBackup");
 mediumEngine.AddPlayer("imp");
 mediumEngine.AssignRole("medium", RoleType.Medium.ToString(), TeamType.Crewmate);
 mediumEngine.AssignRole("imp", "Impostor", TeamType.Impostor);
 mediumEngine.StartGame(0);
 Check(mediumEngine.EliminatePlayer("crewSpirit"), "prepare dead crewmate spirit for Medium");
+Check(mediumEngine.State.Phase == GamePhase.InProgress, "Medium test remains active after preparing a corpse");
 var medium = new RoleRegistry().Get(RoleType.Medium)!;
 var crewSeance = medium.UseAbility(new RoleContext(mediumEngine, "medium", "crewSpirit", now));
 Check(crewSeance.Succeeded, "Medium can contact a dead crewmate");
