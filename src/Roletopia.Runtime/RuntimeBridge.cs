@@ -59,9 +59,11 @@ namespace Roletopia.Runtime
 
         public HostModSettings()
         {
+            // Keep one role enabled at a time while each playable role is being hardened.
+            // Sheriff remains implemented, but Medium is the current default test role.
             _roles = Enum.GetValues(typeof(RoleType))
                 .Cast<RoleType>()
-                .ToDictionary(role => role, role => new RoleOption(role, role == RoleType.Sheriff, role == RoleType.Sheriff ? 1 : 0));
+                .ToDictionary(role => role, role => new RoleOption(role, role == RoleType.Medium, role == RoleType.Medium ? 1 : 0));
 
             Configure(RoleType.Sheriff, ("cooldown", "Kill Cooldown", 30d, 5d, 90d, 5d), ("misfire", "Misfire Kills Sheriff", 1d, 0d, 1d, 1d));
             Configure(RoleType.Medium, ("cooldown", "Seance Cooldown", 20d, 5d, 90d, 5d), ("duration", "Seance Duration", 8d, 2d, 30d, 1d));
@@ -280,7 +282,7 @@ namespace Roletopia.Runtime
             {
                 _adapter.SetRoletopiaHudVisible(Settings.RoletopiaEnabled);
                 _adapter.ShowHostMessage(Settings.RoletopiaEnabled
-                    ? "Roletopia is active. Sheriff is enabled while role gameplay is under construction."
+                    ? "Roletopia is active. Medium is enabled for the current playable-role test."
                     : "Roletopia is disabled for this lobby.");
                 _adapter.BroadcastSettings(Settings);
             }
