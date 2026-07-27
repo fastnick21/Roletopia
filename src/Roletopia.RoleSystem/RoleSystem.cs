@@ -158,6 +158,31 @@ namespace Roletopia.RoleSystem
         }
     }
 
+    public sealed class MediumRoleBehavior : RoleBehaviorBase
+    {
+        public MediumRoleBehavior(AbilityCooldownTracker cooldowns)
+            : base(new RoleDefinition(RoleType.Medium, TeamType.Crewmate, 20, false), cooldowns) { }
+
+        protected override AbilityResult Execute(RoleContext context)
+        {
+            if (string.IsNullOrWhiteSpace(context.TargetId) ||
+                !context.Engine.TryGetPlayer(context.TargetId, out var spirit) ||
+                spirit.Id == context.ActorId ||
+                spirit.IsAlive ||
+                !spirit.IsConnected)
+            {
+                return new AbilityResult(AbilityResultCode.InvalidTarget, "The Medium needs a nearby eliminated player to contact.");
+            }
+
+            // Medium intentionally reveals only a limited clue, not the dead player's exact
+            // custom role. This keeps the seance useful without turning it into a full role scan.
+            var clue = spirit.Team == TeamType.Impostor
+                ? "The spirit carried an IMPOSTOR presence."
+                : "The spirit did NOT carry an Impostor presence.";
+            return new AbilityResult(AbilityResultCode.Success, clue);
+        }
+    }
+
     public sealed class EliminationRoleBehavior : RoleBehaviorBase
     {
         public EliminationRoleBehavior(RoleDefinition definition, AbilityCooldownTracker cooldowns) : base(definition, cooldowns) { }
@@ -192,7 +217,7 @@ namespace Roletopia.RoleSystem
         private void RegisterBuiltInRoles()
         {
             Register(new SheriffRoleBehavior(_cooldowns));
-            Register(new UtilityRoleBehavior(new RoleDefinition(RoleType.Medium, TeamType.Crewmate, 20, false), _cooldowns));
+            Register(new MediumRoleBehavior(_cooldowns));
             Register(new UtilityRoleBehavior(new RoleDefinition(RoleType.Snitch, TeamType.Crewmate, 0, false), _cooldowns));
             Register(new UtilityRoleBehavior(new RoleDefinition(RoleType.Engineer, TeamType.Crewmate, 25, false), _cooldowns));
             Register(new UtilityRoleBehavior(new RoleDefinition(RoleType.Guardian, TeamType.Crewmate, 30, true), _cooldowns));
