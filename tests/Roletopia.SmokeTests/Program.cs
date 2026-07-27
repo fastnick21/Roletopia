@@ -85,6 +85,39 @@ Check(sheriffWinEngine.State.Phase == GamePhase.Finished, "confirmed sheriff mur
 Check(sheriffWin?.WinningTeam == TeamType.Crewmate, "sheriff shares crewmate win condition");
 Check(sheriffWin?.Reason == WinReason.ImpostorsEliminated, "sheriff win is impostors eliminated");
 
+var mediumEngine = new GameEngine();
+mediumEngine.AddPlayer("medium");
+mediumEngine.AddPlayer("crewSpirit");
+mediumEngine.AddPlayer("imp");
+mediumEngine.AssignRole("medium", RoleType.Medium.ToString(), TeamType.Crewmate);
+mediumEngine.AssignRole("imp", "Impostor", TeamType.Impostor);
+mediumEngine.StartGame(0);
+Check(mediumEngine.EliminatePlayer("crewSpirit"), "prepare dead crewmate spirit for Medium");
+var medium = new RoleRegistry().Get(RoleType.Medium)!;
+var crewSeance = medium.UseAbility(new RoleContext(mediumEngine, "medium", "crewSpirit", now));
+Check(crewSeance.Succeeded, "Medium can contact a dead crewmate");
+Check(crewSeance.Message.Contains("did NOT", StringComparison.OrdinalIgnoreCase), "Medium gets limited non-impostor clue");
+var mediumCooldown = medium.UseAbility(new RoleContext(mediumEngine, "medium", "crewSpirit", now.AddSeconds(1)));
+Check(mediumCooldown.Code == AbilityResultCode.OnCooldown, "Medium seance cooldown enforced");
+
+var impostorSpiritEngine = new GameEngine();
+impostorSpiritEngine.AddPlayer("medium");
+impostorSpiritEngine.AddPlayer("crew");
+impostorSpiritEngine.AddPlayer("deadImp");
+impostorSpiritEngine.AddPlayer("otherImp");
+impostorSpiritEngine.AssignRole("medium", RoleType.Medium.ToString(), TeamType.Crewmate);
+impostorSpiritEngine.AssignRole("deadImp", "Impostor", TeamType.Impostor);
+impostorSpiritEngine.AssignRole("otherImp", "Impostor", TeamType.Impostor);
+impostorSpiritEngine.StartGame(0);
+Check(impostorSpiritEngine.EliminatePlayer("deadImp"), "prepare dead impostor spirit for Medium");
+var impostorSeance = new RoleRegistry().Get(RoleType.Medium)!.UseAbility(
+    new RoleContext(impostorSpiritEngine, "medium", "deadImp", now));
+Check(impostorSeance.Succeeded, "Medium can contact a dead impostor");
+Check(impostorSeance.Message.Contains("IMPOSTOR", StringComparison.OrdinalIgnoreCase), "Medium identifies impostor presence without revealing exact role");
+var aliveSeance = new RoleRegistry().Get(RoleType.Medium)!.UseAbility(
+    new RoleContext(impostorSpiritEngine, "medium", "crew", now));
+Check(aliveSeance.Code == AbilityResultCode.InvalidTarget, "Medium cannot seance a living player");
+
 var taskEngine = new GameEngine();
 taskEngine.AddPlayer("crew");
 taskEngine.AddPlayer("other");
@@ -155,13 +188,13 @@ var guestAdapter = new FakeRuntimeAdapter(
     isHost: false);
 var guestCoordinator = new RuntimeCoordinator(guestEngine, new RoleAssignmentService(new RoleRegistry()), guestAdapter);
 Check(guestCoordinator.PrepareLobby(), "guest prepares local role state");
-Check(guestCoordinator.AssignConfiguredRoles(), "guest deterministically assigns local Sheriff state");
-Check(guestAdapter.AssignedRoles.Count == 1, "guest stores local Sheriff assignment");
+Check(guestCoordinator.AssignConfiguredRoles(), "guest deterministically assigns current test role state");
+Check(guestAdapter.AssignedRoles.TryGetValue("crew", out var guestRole) && guestRole == RoleType.Medium, "guest stores local Medium assignment");
 Check(guestAdapter.ResetCount >= 2, "role assignments reset between lobby and game assignment");
 guestEngine.StartGame(0);
-Check(guestCoordinator.CanUseRoleAbilities, "guest Sheriff ability state activates in game");
+Check(guestCoordinator.CanUseRoleAbilities, "guest Medium ability state activates in game");
 Check(guestEngine.EnterMeeting(), "guest test enters meeting");
-Check(!guestCoordinator.CanUseRoleAbilities, "Sheriff abilities disabled during meetings");
+Check(!guestCoordinator.CanUseRoleAbilities, "Medium abilities disabled during meetings");
 
 var syncEngine = new GameEngine();
 var syncAdapter = new FakeRuntimeAdapter(new Dictionary<string, TeamType>
